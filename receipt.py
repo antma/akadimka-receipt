@@ -11,7 +11,7 @@ import sys
 
 POPPLER_BIN = ''
 TEMP_TSV_FILENAME = 'out.tsv'
-LOGGING_LEVEL = logging.DEBUG
+LOGGING_LEVEL = logging.INFO
 
 rows_with_3_numbers = [
   'Базовое содержание общ. имущ. в МКД',
@@ -148,7 +148,7 @@ def read_tsv(input_filename):
     return csv_readall(reader)
 
 fmt = '%(asctime)s %(levelname)s %(message)s'
-logging.basicConfig(level=LOGGING_LEVEL,format=fmt,filename='out.log',filemode='w')
+logging.basicConfig(level=LOGGING_LEVEL,format=fmt,filename='receipt.log',filemode='w')
 input_filename = sys.argv[1]
 pdf_to_tsv(input_filename, TEMP_TSV_FILENAME)
 rows = read_tsv(TEMP_TSV_FILENAME)
