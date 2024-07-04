@@ -2,6 +2,7 @@
 # -*- coding: UTF8 -*-
 
 from collections import defaultdict
+import argparse
 import csv
 import logging
 import os
@@ -10,8 +11,6 @@ import subprocess
 import sys
 
 POPPLER_BIN = ''
-TEMP_TSV_FILENAME = 'out.tsv'
-LOGGING_LEVEL = logging.INFO
 
 rows_with_3_numbers = [
   'Базовое содержание общ. имущ. в МКД',
@@ -147,16 +146,42 @@ def read_tsv(input_filename):
     reader = csv.reader(f, delimiter = '\t')
     return csv_readall(reader)
 
+class ExplicitDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
+  """
+  https://stackoverflow.com/a/67208041
+  It is often useful to be able to automatically include the default values in the help output, but only those that were explicitly specified (with default=..).
+  """
+  def _get_help_string(self, action):
+    if (action.default is None) or (action.default is False): return action.help
+    return super()._get_help_string(action)
+
+def parse_options():
+  argument_parser = argparse.ArgumentParser(
+   description = 'Converts table from one page PDF to CSV with custom schema',
+   formatter_class=ExplicitDefaultsHelpFormatter)
+  argument_parser.add_argument('-o', '--output', default = 'out.csv', metavar = 'FILE', help = 'set output filename')
+  argument_parser.add_argument('-l', '--log', metavar = 'FILE', help = 'set log filename, if not given log to STDOUT')
+  argument_parser.add_argument('-t', '--tmp_tsv', default = 'out.tsv', metavar = 'FILE', help = 'set temporary TSV filename')
+  argument_parser.add_argument('--debug', action = 'store_true', help = 'enable debug logging')
+  argument_parser.add_argument('input_filename')
+  return argument_parser.parse_args()
+
+args = parse_options()
+LOGGING_LEVEL = logging.INFO
+if args.debug: LOGGING_LEVEL = logging.DEBUG
+
 fmt = '%(asctime)s %(levelname)s %(message)s'
-logging.basicConfig(level=LOGGING_LEVEL,format=fmt,filename='receipt.log',filemode='w')
-input_filename = sys.argv[1]
-pdf_to_tsv(input_filename, TEMP_TSV_FILENAME)
-rows = read_tsv(TEMP_TSV_FILENAME)
+if args.log == None:
+  logging.basicConfig(level=LOGGING_LEVEL,format=fmt,stream=sys.stdout)
+else:
+  logging.basicConfig(level=LOGGING_LEVEL,format=fmt,filename='receipt.log',filemode='w')
+pdf_to_tsv(args.input_filename, args.tmp_tsv)
+rows = read_tsv(args.tmp_tsv)
 rl = ReceiptLines()
 for group in group_by(rows, 'top').values():
   rl.add_line(group)
 
-with open('out.csv', 'w', newline='') as csvfile:
+with open(args.output, 'w', newline='') as csvfile:
   writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
   rl.process_section(writer, rows_with_3_numbers, 3)
   rl.process_section(writer, rows_with_4_numbers, 4)
