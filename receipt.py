@@ -12,34 +12,6 @@ import sys
 
 POPPLER_BIN = ''
 
-rows_with_3_numbers = [
-  'Базовое содержание общ. имущ. в МКД',
-  'Текущий ремонт общ. имущ. в МКД',
-  'Сод. и ремонт СКД, СВ., АППЗ, автом, дымоудаления',
-  'Эксплуатация лифт. оборудования',
-  'Орг-я раб. Аварийно-Диспет. службы',
-  'Обслуж. котельной, ИТП, насосной станции',
-  'Содерж. придом. территории',
-  'Уборка МОП',
-  'Замена моющихся ковров',
-  'Управление МКД'
-]
-
-rows_with_4_numbers = [
-  'ХВС',
-  'ГВС теплоноситель',
-  'ГВС тепловая энергия',
-  'Канализация хол.воды',
-  'Канализация гор.воды',
-  'Отопление (расход газа)',
-  'Отопление (расход электроэнергии)',
-]
-
-other = [
-  'Охрана комплекса',
-  'Содержание зеленых насаждений, газонов',
-]
-
 def pdf_to_tsv(input_filename, output_filename):
   command = [os.path.join(POPPLER_BIN, 'pdftotext'), '-tsv', input_filename, output_filename]
   logging.info('Running command {}'.format(command))
@@ -107,17 +79,16 @@ class ReceiptLines:
       #else: r = (name, p[1][0], p[1][1], p[1][2], p[1][3])
     except StopIteration:
       return None
-  def process_section(self, writer, names, columns):
-    for name in names:
-      n = self.get_numbers(name, columns)
-      if n == None:
-        logging.warning(f'row "{name}" is broken')
-        t = (name, '-', '-', '-', '-')
-      elif columns == 3:
-        t = (name, n[0], '-', n[1], n[2])
-      else:
-        t = (name, n[0], n[1], n[2], n[3])
-      writer.writerow(t)
+  def export_row(self, writer, name, columns):
+    n = self.get_numbers(name, columns)
+    if n == None:
+      logging.warning(f'row "{name}" is broken')
+      t = (name, '-', '-', '-', '-')
+    elif columns == 3:
+      t = (name, n[0], '-', n[1], n[2])
+    else:
+      t = (name, n[0], n[1], n[2], n[3])
+    writer.writerow(t)
 
 def group_by(rows, attr):
   d = defaultdict(list)
@@ -166,15 +137,42 @@ def parse_options():
   argument_parser.add_argument('input_filename')
   return argument_parser.parse_args()
 
+def load_schema(filename):
+  a = []
+  with open(filename, 'r', newline='') as csvfile:
+    reader = csv.reader(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    header = next(reader)
+    if header != ['name', 'columns']:
+      logging.error('load_schema: schema header mismatched')
+      return None
+    for line, t in enumerate(reader):
+      if len(t) != 2:
+        logging.error(f'load_schema: expected exactly 2 fields in a row (file: "{filename}", line {line+2})')
+        return None
+      try:
+        columns = int(t[1])
+      except ValueError as err:
+        logging.error(f'load_schema: can not convert columns number to integer (file: "{filename}", line {line+2}, error "{err}")')
+        return None
+      if (columns != 3) and (columns != 4):
+        logging.error(f'load_schema: number of columns could be only 3 or 4 (file: "{filename}", line {line+2})')
+        return None
+      a.append((t[0], columns))
+  return a
+
+def init_logging(log_filename):
+  fmt = '%(asctime)s %(levelname)s %(message)s'
+  if log_filename == None:
+    logging.basicConfig(level=LOGGING_LEVEL, format=fmt, stream=sys.stdout)
+  else:
+    logging.basicConfig(level=LOGGING_LEVEL, format=fmt, filename=log_filename, filemode='w')
+
 args = parse_options()
 LOGGING_LEVEL = logging.INFO
 if args.debug: LOGGING_LEVEL = logging.DEBUG
-
-fmt = '%(asctime)s %(levelname)s %(message)s'
-if args.log == None:
-  logging.basicConfig(level=LOGGING_LEVEL,format=fmt,stream=sys.stdout)
-else:
-  logging.basicConfig(level=LOGGING_LEVEL,format=fmt,filename='receipt.log',filemode='w')
+init_logging(args.log)
+schema = load_schema('schema.csv')
+if schema == None: sys.exit(1)
 pdf_to_tsv(args.input_filename, args.tmp_tsv)
 rows = read_tsv(args.tmp_tsv)
 rl = ReceiptLines()
@@ -183,6 +181,5 @@ for group in group_by(rows, 'top').values():
 
 with open(args.output, 'w', newline='') as csvfile:
   writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-  rl.process_section(writer, rows_with_3_numbers, 3)
-  rl.process_section(writer, rows_with_4_numbers, 4)
-  rl.process_section(writer, other, 3)
+  for (name, columns) in schema:
+    rl.export_row(writer, name, columns)
