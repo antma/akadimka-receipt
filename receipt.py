@@ -63,42 +63,42 @@ class Line:
         if nr.is_number(s):
           self._add_number(s)
     self.name = ' '.join(names)
-    #logging.debug(f'Line: name = \"{self.name}\", numbers = {self.numbers}')
+  def startswith(self, s):
+    return self.name.startswith(s)
 
 class ReceiptLines:
   def __init__(self):
     self.nr = NumberRecognizer()
-    self.lines_with_3_numbers = []
-    self.lines_with_4_numbers = []
+    self.lines_with_at_least_3_numbers = []
+    self.lines_with_at_least_4_numbers = []
   def add_line(self, rows):
     l = Line(rows, self.nr)
     nc = len(l.numbers)
-    if nc == 3:
-      self.lines_with_3_numbers.append(l)
-    elif nc == 4:
-      self.lines_with_4_numbers.append(l)
-    else:
-      nc = -1
-    if nc >= 0:
-      logging.debug(f'Add line with {nc} numbers: {l.name}')
+    if nc >= 3:
+      self.lines_with_at_least_3_numbers.append(l)
+    if nc >= 4:
+      self.lines_with_at_least_4_numbers.append(l)
   def get_numbers(self, name, columns):
-    l = self.lines_with_3_numbers if columns == 3 else self.lines_with_4_numbers
+    l = self.lines_with_at_least_3_numbers if columns == 3 \
+        else self.lines_with_at_least_3_numbers
     try:
-      p = next(filter(lambda x: x.name.startswith(name), l))
+      p = next(filter(lambda x: x.startswith(name), l))
       return p.numbers
-      #if columns == 3: r = (name, p[1][0], '-', p[1][1], p[1][2])
-      #else: r = (name, p[1][0], p[1][1], p[1][2], p[1][3])
     except StopIteration:
       return None
   def export_row(self, writer, name, columns):
     n = self.get_numbers(name, columns)
+    assert((n is None) or (len(n) >= columns))
     if n is None:
       logging.warning(f'row "{name}" is broken')
       t = (name, '-', '-', '-', '-')
-    elif columns == 3:
-      t = (name, n[0], '-', n[1], n[2])
     else:
-      t = (name, n[0], n[1], n[2], n[3])
+      if len(n) > columns:
+        logging.warning(f'row "{name}" contains more numbers ({len(n)}) then expected ({columns}). Please, recheck it manually.')
+      if columns == 3:
+        t = (name, n[0], '-', n[1], n[2])
+      else:
+        t = (name, n[0], n[1], n[2], n[3])
     writer.writerow(t)
 
 def group_by(rows, attr):
@@ -166,38 +166,41 @@ def load_schema(filename):
       except ValueError as err:
         logging.error(f'load_schema: can not convert columns number to integer (file: "{filename}", line {line+2}, error "{err}")')
         return None
-      if (cols != 3) and (cols != 4):
+      if (cols < 3) or (cols > 4):
         logging.error(f'load_schema: number of columns could be only 3 or 4 (file: "{filename}", line {line+2})')
         return None
       a.append((t[0], cols))
   return a
 
-def init_logging(log_filename):
+def init_logging(log_filename, logging_level):
   fmt = '%(asctime)s %(levelname)s %(message)s'
   if log_filename is None:
-    logging.basicConfig(level=LOGGING_LEVEL, format=fmt, stream=sys.stdout)
+    logging.basicConfig(level=logging_level, format=fmt, stream=sys.stdout)
   else:
-    logging.basicConfig(level=LOGGING_LEVEL, format=fmt, filename=log_filename, filemode='w')
+    logging.basicConfig(level=logging_level, format=fmt, filename=log_filename, filemode='w')
 
-args = parse_options()
-LOGGING_LEVEL = logging.INFO
-if args.debug:
-  LOGGING_LEVEL = logging.DEBUG
-init_logging(args.log)
-schema = load_schema('schema.csv')
-if schema is None:
-  sys.exit(1)
-if not os.path.lexists(args.input_filename):
-  logging.critical(f'File "{args.input_filename}" not found.')
-  sys.exit(1)
-if pdf_to_tsv(args.input_filename, args.tmp_tsv) != 0:
-  logging.critical(f'Can not convert "{args.input_filename}" PDF file to TSV format.')
-  sys.exit(1)
-rows = read_tsv(args.tmp_tsv)
-rl = ReceiptLines()
-for group in group_by(rows, 'top').values():
-  rl.add_line(group)
-with open(args.output, 'w', newline='', encoding = 'UTF8') as csvfile:
-  writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-  for (name, columns) in schema:
-    rl.export_row(writer, name, columns)
+def main():
+  args = parse_options()
+  logging_level = logging.INFO
+  if args.debug:
+    logging_level = logging.DEBUG
+  init_logging(args.log, logging_level)
+  schema = load_schema('schema.csv')
+  if schema is None:
+    sys.exit(1)
+  if not os.path.lexists(args.input_filename):
+    logging.critical(f'File "{args.input_filename}" not found.')
+    sys.exit(1)
+  if pdf_to_tsv(args.input_filename, args.tmp_tsv) != 0:
+    logging.critical(f'Can not convert "{args.input_filename}" PDF file to TSV format.')
+    sys.exit(1)
+  rows = read_tsv(args.tmp_tsv)
+  rl = ReceiptLines()
+  for group in group_by(rows, 'top').values():
+    rl.add_line(group)
+  with open(args.output, 'w', newline='', encoding = 'UTF8') as csvfile:
+    writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for (name, columns) in schema:
+      rl.export_row(writer, name, columns)
+
+main()
