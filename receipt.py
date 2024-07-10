@@ -36,8 +36,28 @@ def lines_with_attr(line, attr):
 class NumberRecognizer:
   def __init__(self):
     self.re_number = re.compile(r'\d{1,10}((\.|,)\d{0,6})?')
+    #https://ru.stackoverflow.com/questions/810304/Как-вывести-названия-месяцев-без-склонения-в-calendar
+    months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+    self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(months)))
+    self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
     return not self.re_number.fullmatch(s) is None
+  def get_month_number(self, s):
+    """
+    >>> NumberRecognizer().get_month_number('Май')
+    5
+    """
+    return self.months.get(s)
+  def is_year(self, s):
+    """
+    >>> NumberRecognizer().is_year('2024')
+    True
+    >>> NumberRecognizer().is_year('20245')
+    False
+    >>> NumberRecognizer().is_year('1980')
+    False
+    """
+    return not self.re_year.fullmatch(s) is None
 
 def contains_digits(s):
   return any(map(lambda x: x.isdigit(), s))
@@ -140,13 +160,15 @@ class ExplicitDefaultsHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 
 def parse_options():
   argument_parser = argparse.ArgumentParser(
-   description = 'Converts table from one page PDF to CSV with custom schema',
-   formatter_class=ExplicitDefaultsHelpFormatter)
+    description = 'Converts table from one page PDF to CSV with custom schema',
+    formatter_class=ExplicitDefaultsHelpFormatter)
   argument_parser.add_argument('-o', '--output', default = 'out.csv', metavar = 'FILE', help = 'set output filename')
   argument_parser.add_argument('-l', '--log', metavar = 'FILE', help = 'set log filename, if not given log to STDOUT')
   argument_parser.add_argument('-t', '--tmp_tsv', default = 'out.tsv', metavar = 'FILE', help = 'set temporary TSV filename')
   argument_parser.add_argument('--debug', action = 'store_true', help = 'enable debug logging')
-  argument_parser.add_argument('input_filename')
+  argument_parser.add_argument('--test', action = 'store_true', help = 'run python doctests')
+  if '--test' not in sys.argv:
+    argument_parser.add_argument('input_filename')
   return argument_parser.parse_args()
 
 def load_schema(filename):
@@ -181,6 +203,10 @@ def init_logging(log_filename, logging_level):
 
 def main():
   args = parse_options()
+  if args.test:
+    import doctest
+    doctest.testmod(verbose=True)
+    sys.exit(0)
   logging_level = logging.INFO
   if args.debug:
     logging_level = logging.DEBUG
