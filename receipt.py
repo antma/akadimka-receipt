@@ -41,7 +41,7 @@ class NumberRecognizer:
     self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(months)))
     self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
-    return not self.re_number.fullmatch(s) is None
+    return not (self.re_number.fullmatch(s) is None)
   def get_month_number(self, s):
     """
     >>> NumberRecognizer().get_month_number('Май')
@@ -57,7 +57,8 @@ class NumberRecognizer:
     >>> NumberRecognizer().is_year('1980')
     False
     """
-    return not self.re_year.fullmatch(s) is None
+    logging.debug(f'is_year(): s = {s}')
+    return not (self.re_year.fullmatch(s) is None)
 
 def contains_digits(s):
   return any(map(lambda x: x.isdigit(), s))
@@ -65,7 +66,7 @@ def contains_digits(s):
 class Line:
   def _add_number(self, s):
     self.numbers.append(s.replace('.', ','))
-  def __init__(self, rows, nr):
+  def __init__(self, rows, nr, parse_date):
     #state: 0 (читаем название), 1 (читаем числа)
     state = 0
     names = []
@@ -83,24 +84,41 @@ class Line:
         if nr.is_number(s):
           self._add_number(s)
     self.name = ' '.join(names)
+    if parse_date:
+      self.date = None
+      for i in range(1, len(rows)):
+        year = rows[i].text
+        if nr.is_year(year):
+          month = nr.get_month_number(rows[i-1].text)
+          if not (month is None):
+            self.date = (month, int(year))
+            break
   def startswith(self, s):
     return self.name.startswith(s)
 
 class ReceiptLines:
   def __init__(self):
     self.nr = NumberRecognizer()
-    self.lines_with_at_least_3_numbers = []
-    self.lines_with_at_least_4_numbers = []
+    self.first_date = None
+    self._lines_with_at_least_3_numbers = []
+    self._lines_with_at_least_4_numbers = []
+  def first_strdate(self):
+    d = self.first_date
+    if d is None:
+      return None
+    return f'{d[0]:02d}-{d[1]}'
   def add_line(self, rows):
-    l = Line(rows, self.nr)
+    l = Line(rows, self.nr, self.first_date is None)
+    if (self.first_date is None) and (not l.date is None):
+      self.first_date = l.date
     nc = len(l.numbers)
     if nc >= 3:
-      self.lines_with_at_least_3_numbers.append(l)
+      self._lines_with_at_least_3_numbers.append(l)
     if nc >= 4:
-      self.lines_with_at_least_4_numbers.append(l)
+      self._lines_with_at_least_4_numbers.append(l)
   def get_numbers(self, name, columns):
-    l = self.lines_with_at_least_3_numbers if columns == 3 \
-        else self.lines_with_at_least_3_numbers
+    l = self._lines_with_at_least_3_numbers if columns == 3 \
+        else self._lines_with_at_least_3_numbers
     try:
       p = next(filter(lambda x: x.startswith(name), l))
       return p.numbers
@@ -162,7 +180,7 @@ def parse_options():
   argument_parser = argparse.ArgumentParser(
     description = 'Converts table from one page PDF to CSV with custom schema',
     formatter_class=ExplicitDefaultsHelpFormatter)
-  argument_parser.add_argument('-o', '--output', default = 'out.csv', metavar = 'FILE', help = 'set output filename')
+  argument_parser.add_argument('-o', '--output', metavar = 'FILE', help = 'set output filename')
   argument_parser.add_argument('-l', '--log', metavar = 'FILE', help = 'set log filename, if not given log to STDOUT')
   argument_parser.add_argument('-t', '--tmp_tsv', default = 'out.tsv', metavar = 'FILE', help = 'set temporary TSV filename')
   argument_parser.add_argument('--debug', action = 'store_true', help = 'enable debug logging')
@@ -224,6 +242,15 @@ def main():
   rl = ReceiptLines()
   for group in group_by(rows, 'top').values():
     rl.add_line(group)
+  if args.output is None:
+    d = rl.first_strdate()
+    if d is None:
+      logging.warning(f'Date was not found in PDF file "{args.input_filename}"')
+      default_output_file = 'out.csv'
+      args.output = default_output_file
+    else:
+      args.output = d + '.csv'
+  logging.info(f'Writing CSV data to "{args.output}" file')
   with open(args.output, 'w', newline='', encoding = 'UTF8') as csvfile:
     writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     for (name, columns) in schema:
