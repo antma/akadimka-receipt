@@ -15,7 +15,7 @@ POPPLER_BIN = ''
 def pdf_to_tsv(input_filename, output_filename):
   command = [os.path.join(POPPLER_BIN, 'pdftotext'), '-tsv', input_filename, output_filename]
   logging.info(f'Running command {command}')
-  r = subprocess.run(command, check = False)
+  r = subprocess.run(command, check = False, shell = False)
   logging.info(f'pdftotext returns {r.returncode} code')
   return r.returncode
 
@@ -41,7 +41,7 @@ class NumberRecognizer:
     self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(months)))
     self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
-    return not (self.re_number.fullmatch(s) is None)
+    return not self.re_number.fullmatch(s) is None
   def get_month_number(self, s):
     """
     >>> NumberRecognizer().get_month_number('Май')
@@ -58,7 +58,7 @@ class NumberRecognizer:
     False
     """
     logging.debug(f'is_year(): s = {s}')
-    return not (self.re_year.fullmatch(s) is None)
+    return not self.re_year.fullmatch(s) is None
 
 def contains_digits(s):
   return any(map(lambda x: x.isdigit(), s))
@@ -90,7 +90,7 @@ class Line:
         year = rows[i].text
         if nr.is_year(year):
           month = nr.get_month_number(rows[i-1].text)
-          if not (month is None):
+          if not month is None:
             self.date = (month, int(year))
             break
   def startswith(self, s):
@@ -221,7 +221,14 @@ def init_logging(log_filename, logging_level):
 
 def git_hash_version():
   command = ['git', 'log', '-1', '--pretty=format:"%H"']
-  r = subprocess.run(command, check = False, capture_output=True)
+  #https://stackoverflow.com/a/3172488/14024582
+  #So invoking the shell invokes a program of the user's choosing and is platform-dependent.
+  #Generally speaking, avoid invocations via the shell.
+  try:
+    r = subprocess.run(command, check = False, shell = False, capture_output=True)
+  except FileNotFoundError as err:
+    logging.warning(f"Can't found script version. {err}")
+    return None
   if r.returncode != 0: return None
   return r.stdout.decode('UTF8').strip()
 
@@ -236,7 +243,8 @@ def main():
     logging_level = logging.DEBUG
   init_logging(args.log, logging_level)
   git_commit_hash = git_hash_version()
-  logging.info(f'Script version: {git_commit_hash}')
+  if not git_commit_hash is None:
+    logging.info(f'Script version: {git_commit_hash}')
   schema = load_schema('schema.csv')
   if schema is None:
     sys.exit(1)
