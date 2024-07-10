@@ -219,6 +219,12 @@ def init_logging(log_filename, logging_level):
   else:
     logging.basicConfig(level=logging_level, format=fmt, filename=log_filename, filemode='w')
 
+def git_hash_version():
+  command = ['git', 'log', '-1', '--pretty=format:"%H"']
+  r = subprocess.run(command, check = False, capture_output=True)
+  if r.returncode != 0: return None
+  return r.stdout.decode('UTF8').strip()
+
 def main():
   args = parse_options()
   if args.test:
@@ -229,6 +235,8 @@ def main():
   if args.debug:
     logging_level = logging.DEBUG
   init_logging(args.log, logging_level)
+  git_commit_hash = git_hash_version()
+  logging.info(f'Script version: {git_commit_hash}')
   schema = load_schema('schema.csv')
   if schema is None:
     sys.exit(1)
