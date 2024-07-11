@@ -1,6 +1,8 @@
 #!/usr/bin/python
 import csv
 import io
+import logging
+import sys
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
 
@@ -18,7 +20,7 @@ def on_click():
     return
   tmp_tsv = 'out.tsv'
   if pdf_utils.pdf_to_tsv(input_filename, tmp_tsv) != 0:
-    logging.error(f'Can not convert "{args.input_filename}" PDF file to TSV format.')
+    logging.error(f'Can not convert "{input_filename}" PDF file to TSV format.')
     return
   rl = tsv.read_and_parse(tmp_tsv)
   csvfile = io.StringIO()

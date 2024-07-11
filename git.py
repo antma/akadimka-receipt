@@ -13,5 +13,6 @@ def hash_version():
   except FileNotFoundError as err:
     logging.warning(f"Can't found script version. {err}")
     return None
-  if r.returncode != 0: return None
+  if r.returncode != 0:
+    return None
   return r.stdout.decode('UTF8').strip()

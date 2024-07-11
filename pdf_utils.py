@@ -1,6 +1,8 @@
 # -*- coding: UTF8 -*-
 
-import logging, os, subprocess
+import logging
+import os
+import subprocess
 
 def pdf_to_tsv(input_filename, output_filename):
   if not os.path.lexists(input_filename):
