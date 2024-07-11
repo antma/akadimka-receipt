@@ -4,7 +4,7 @@ import logging
 import subprocess
 
 def hash_version():
-  command = ['git', 'log', '-1', '--pretty=format:"%H"']
+  command = ['git', 'log', '-1', '--pretty=format:%H']
   #https://stackoverflow.com/a/3172488/14024582
   #So invoking the shell invokes a program of the user's choosing and is platform-dependent.
   #Generally speaking, avoid invocations via the shell.
