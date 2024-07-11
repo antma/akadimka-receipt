@@ -40,9 +40,7 @@ def main():
   if args.debug:
     logging_level = logging.DEBUG
   log.init_logging(args.log, logging_level)
-  git_commit_hash = git.hash_version()
-  if not git_commit_hash is None:
-    logging.info(f'Script version: {git_commit_hash}')
+  logging.info(f'Script version: {git.hash_version()}')
   extraction_schema = schema.load('schema.csv')
   if extraction_schema is None:
     sys.exit(1)

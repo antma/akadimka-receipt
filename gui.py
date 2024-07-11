@@ -35,14 +35,11 @@ def on_click():
   os.unlink(tmp_tsv)
 
 log.init_logging(None)
-git_commit_hash = git.hash_version()
-if git_commit_hash is None:
-  git_commit_hash = 'unknown'
 extraction_schema = schema.load('schema.csv')
 if extraction_schema is None:
   sys.exit(1)
 window = tk.Tk()
-window.title(f'Receipt-{git_commit_hash}')
+window.title(f'Receipt-{git.hash_version()}')
 label = tk.Label(text="Output")
 output = tk.Text()
 button = tk.Button(
