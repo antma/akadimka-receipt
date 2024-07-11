@@ -51,6 +51,6 @@ button = tk.Button(
   command = on_click,
 )
 label.pack()
-output.pack()
+output.pack(expand=1, fill=tk.BOTH)
 button.pack()
 window.mainloop()
