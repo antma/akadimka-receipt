@@ -109,7 +109,7 @@ class ReceiptLines:
       return p.numbers
     except StopIteration:
       return None
-  def export_row(self, writer, name, columns):
+  def _export_row(self, writer, name, columns):
     n = self.get_numbers(name, columns)
     assert((n is None) or (len(n) >= columns))
     if n is None:
@@ -123,6 +123,10 @@ class ReceiptLines:
       else:
         t = (name, n[0], n[1], n[2], n[3])
     writer.writerow(t)
+  def export_csv(self, csvfile, extraction_schema):
+    writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    for (name, columns) in extraction_schema:
+      self._export_row(writer, name, columns)
 
 def _group_by(rows, attr):
   d = defaultdict(list)

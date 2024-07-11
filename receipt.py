@@ -3,7 +3,6 @@
 
 #standard python modules
 import argparse
-import csv
 import logging
 import sys
 
@@ -61,8 +60,6 @@ def main():
       args.output = d + '.csv'
   logging.info(f'Writing CSV data to "{args.output}" file')
   with open(args.output, 'w', newline='', encoding = 'UTF8') as csvfile:
-    writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for (name, columns) in extraction_schema:
-      rl.export_row(writer, name, columns)
+    rl.export_csv(csvfile, extraction_schema)
 
 main()

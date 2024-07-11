@@ -1,7 +1,7 @@
 #!/usr/bin/python
-import csv
 import io
 import logging
+import os
 import sys
 import tkinter as tk
 from tkinter.filedialog import askopenfilename
@@ -23,18 +23,16 @@ def on_click():
     logging.error(f'Can not convert "{input_filename}" PDF file to TSV format.')
     return
   rl = tsv.read_and_parse(tmp_tsv)
-  csvfile = io.StringIO()
   with io.StringIO() as csvfile:
-    writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for (name, columns) in extraction_schema:
-      rl.export_row(writer, name, columns)
-
+    rl.export_csv(csvfile, extraction_schema)
     d = rl.first_strdate()
     if not d is None:
       label['text'] = d
     #https://stackoverflow.com/questions/27966626/how-to-clear-delete-the-contents-of-a-tkinter-text-widget
     output.delete(1.0, tk.END)
     output.insert(tk.END, csvfile.getvalue())
+  logging.info(f'Removing temp file "{tmp_tsv}"')
+  os.unlink(tmp_tsv)
 
 log.init_logging(None)
 git_commit_hash = git.hash_version()
