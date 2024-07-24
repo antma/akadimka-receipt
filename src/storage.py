@@ -5,8 +5,8 @@ import glob
 import logging
 import os
 import re
-import sys
 
+import io_utils
 import schema
 
 def _compute_csv_filename(storage_dir, year, month):
@@ -18,9 +18,8 @@ def _compute_csv_filename(storage_dir, year, month):
 
 class Storage:
   def __init__(self, dirname, schema_filename):
-    self.dir = os.path.join(os.path.dirname(sys.argv[0]), dirname)
-    if not os.path.lexists(self.dir):
-      os.mkdir(self.dir)
+    self.dir = io_utils.path_join(dirname)
+    io_utils.create_dir_if_absent(self.dir)
     self.schema_filename = schema_filename
     self.schema = schema.load(schema_filename)
     self._max_month_columns = max(map(lambda t: t[1], self.schema))
