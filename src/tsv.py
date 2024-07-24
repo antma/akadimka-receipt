@@ -76,7 +76,7 @@ class _Line:
         if nr.is_year(year):
           month = nr.get_month_number(rows[i-1].text)
           if not month is None:
-            self.date = (month, int(year))
+            self.date = (int(year), month)
             break
   def startswith(self, s):
     return self.name.startswith(s)
@@ -87,11 +87,13 @@ class ReceiptLines:
     self.first_date = None
     self._lines_with_at_least_3_numbers = []
     self._lines_with_at_least_4_numbers = []
+  """
   def first_strdate(self):
     d = self.first_date
     if d is None:
       return None
-    return f'{d[0]:02d}-{d[1]}'
+    return f'{d[1]:02d}-{d[0]}'
+  """
   def add_line(self, rows):
     l = _Line(rows, self.nr, self.first_date is None)
     if (self.first_date is None) and (not l.date is None):

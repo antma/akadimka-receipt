@@ -14,7 +14,7 @@ def _compute_csv_filename(storage_dir, year, month):
   >>> _compute_csv_filename('', 2024, 7)
   '2024-07.csv'
   """
-  return os.path.join(storage_dir, f'{year:04d}-{month:02d}.csv')
+  return os.path.join(storage_dir, f'{year}-{month:02d}.csv')
 
 class Storage:
   def __init__(self, dirname, schema_filename):
@@ -22,10 +22,16 @@ class Storage:
     io_utils.create_dir_if_absent(self.dir)
     self.schema_filename = schema_filename
     self.schema = schema.load(schema_filename)
-    self._max_month_columns = max(map(lambda t: t[1], self.schema))
     self._month_masks_by_year = {}
+    if self.is_valid():
+      self._max_month_columns = max(map(lambda t: t[1], self.schema))
+  def is_valid(self):
+    return not self.schema is None
   def compute_csv_filename(self, year, month):
     return _compute_csv_filename(self.dir, year, month)
+  def _add_month(self, year, month):
+    if 1 <= month <= 12:
+      d[year] = d.get(year, 0) | (1 << month)
   def scan(self):
     reg_exp = re.compile(r'(\d{4})-(\d\d).csv')
     d = {}
@@ -35,8 +41,7 @@ class Storage:
       if not m is None:
         year = int(m.group(1))
         month = int(m.group(2))
-        if 1 <= month <= 12:
-          d[year] = d.get(year, 0) | (1 << month)
+        self._add_month(year, month)
     self._month_masks_by_year = d
   def available_years(self):
     a = list(self._month_masks_by_year.keys())
@@ -70,7 +75,11 @@ class Storage:
         for i, v in enumerate(d):
           a[i].extend(v)
     return (months, a)
-
+  def save_csv(self, year, month, rl):
+    csv_filename = self.compute_csv_filename(year, month)
+    with open(csv_filename, 'w', newline='', encoding = 'UTF8') as csvfile:
+      rl.export_csv(csvfile, self.schema)
+      self._add_month(year, month)
 if __name__ == "__main__":
   import doctest
   doctest.testmod(verbose=True)
