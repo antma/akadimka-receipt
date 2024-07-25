@@ -31,10 +31,10 @@ class Storage:
     return _compute_csv_filename(self.dir, year, month)
   def _add_month(self, year, month):
     if 1 <= month <= 12:
-      d[year] = d.get(year, 0) | (1 << month)
+      self._month_masks_by_year[year] = self._month_masks_by_year.get(year, 0) | (1 << month)
   def scan(self):
     reg_exp = re.compile(r'(\d{4})-(\d\d).csv')
-    d = {}
+    self._month_masks_by_year = {}
     for fn in glob.glob(os.path.join(self.dir, '[0-9][0-9][0-9][0-9]-[0-9][0-9].csv')):
       s = os.path.basename(fn)
       m = reg_exp.fullmatch(s)
@@ -42,7 +42,6 @@ class Storage:
         year = int(m.group(1))
         month = int(m.group(2))
         self._add_month(year, month)
-    self._month_masks_by_year = d
   def available_years(self):
     a = list(self._month_masks_by_year.keys())
     a.sort()
@@ -76,6 +75,7 @@ class Storage:
           a[i].extend(v)
     return (months, a)
   def save_csv(self, year, month, rl):
+    #TODO: consider case when csv file is already exist
     csv_filename = self.compute_csv_filename(year, month)
     with open(csv_filename, 'w', newline='', encoding = 'UTF8') as csvfile:
       rl.export_csv(csvfile, self.schema)

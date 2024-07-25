@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 import tkinter as tk
-from tkinter.filedialog import askopenfilename
+import tkinter.filedialog as fd
 
 import git
 import io_utils
@@ -25,35 +25,26 @@ class MainWindow:
     self.root.configure(menu=self.menubar)
     baseMenu = tk.Menu(self.menubar)
     self.menubar.add_cascade(label="База", menu=baseMenu)
-    baseMenu.add_command(label="Добавить PDF квитанцию", command=self.add_pdf_file)
-  def add_pdf_file(self):
-    logging.info("Clicked add_pdf_file")
-    input_filename = askopenfilename(
-      filetypes=[("PDF Files", "*.pdf"), ("All Files", "*.*")]
-    )
-    if not input_filename:
-      return
+    baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
+  def _add_pdf_file(self, pdf_filename):
     tmp_tsv = io_utils.temporary_filename('out.tsv')
-    if pdf_utils.pdf_to_tsv(input_filename, tmp_tsv) != 0:
-      logging.error(f'Can not convert "{input_filename}" PDF file to TSV format.')
+    if pdf_utils.pdf_to_tsv(pdf_filename, tmp_tsv) != 0:
+      logging.error(f'Can not convert "{pdf_filename}" PDF file to TSV format.')
       return
     rl = tsv.read_and_parse(tmp_tsv)
     date = rl.first_date
     if not date is None:
       year, month = date
       self.db_storage.save_csv(year, month, rl)
-    """
-    with io.StringIO() as csvfile:
-      rl.export_csv(csvfile, extraction_schema)
-      d = rl.first_strdate()
-      if not d is None:
-        label['text'] = d
-      #https://stackoverflow.com/questions/27966626/how-to-clear-delete-the-contents-of-a-tkinter-text-widget
-      output.delete(1.0, tk.END)
-      output.insert(tk.END, csvfile.getvalue())
-    """
     logging.info(f'Removing temp file "{tmp_tsv}"')
     os.unlink(tmp_tsv)
+  def add_pdf_files(self):
+    logging.info("Clicked add_pdf_file")
+    input_filenames = fd.askopenfilenames(
+      filetypes=[("PDF Files", "*.pdf"), ("All Files", "*.*")]
+    )
+    for pdf_filename in input_filenames:
+      self._add_pdf_file(pdf_filename)
   def mainloop(self):
     self.root.mainloop()
 

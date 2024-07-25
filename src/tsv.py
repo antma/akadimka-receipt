@@ -78,8 +78,11 @@ class _Line:
           if not month is None:
             self.date = (int(year), month)
             break
-  def startswith(self, s):
+  def _startswith(self, s):
     return self.name.startswith(s)
+  def matched(self, s):
+    """ ' / ' в названии строчки s используется как один из вариантов (содержание газонов или уборка снега) """
+    return any(map(lambda t: self._startswith(t), s.split(' / ')))
 
 class ReceiptLines:
   def __init__(self):
@@ -87,13 +90,11 @@ class ReceiptLines:
     self.first_date = None
     self._lines_with_at_least_3_numbers = []
     self._lines_with_at_least_4_numbers = []
-  """
   def first_strdate(self):
     d = self.first_date
     if d is None:
-      return None
-    return f'{d[1]:02d}-{d[0]}'
-  """
+      return 'unknown'
+    return f'{d[0]}-{d[1]:02d}'
   def add_line(self, rows):
     l = _Line(rows, self.nr, self.first_date is None)
     if (self.first_date is None) and (not l.date is None):
@@ -107,7 +108,7 @@ class ReceiptLines:
     l = self._lines_with_at_least_3_numbers if columns == 3 \
         else self._lines_with_at_least_3_numbers
     try:
-      p = next(filter(lambda x: x.startswith(name), l))
+      p = next(filter(lambda x: x.matched(name), l))
       return p.numbers
     except StopIteration:
       return None
@@ -115,7 +116,7 @@ class ReceiptLines:
     n = self.get_numbers(name, columns)
     assert((n is None) or (len(n) >= columns))
     if n is None:
-      logging.warning(f'row "{name}" is broken')
+      logging.warning(f'row "{name}" is broken in {self.first_strdate()}')
       t = (name, '-', '-', '-', '-')
     else:
       if len(n) > columns:
