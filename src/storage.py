@@ -25,6 +25,7 @@ class Storage:
     self._month_masks_by_year = {}
     if self.is_valid():
       self._max_month_columns = max(map(lambda t: t[1], self.schema))
+      self._scan()
   def is_valid(self):
     return not self.schema is None
   def compute_csv_filename(self, year, month):
@@ -32,7 +33,7 @@ class Storage:
   def _add_month(self, year, month):
     if 1 <= month <= 12:
       self._month_masks_by_year[year] = self._month_masks_by_year.get(year, 0) | (1 << month)
-  def scan(self):
+  def _scan(self):
     reg_exp = re.compile(r'(\d{4})-(\d\d).csv')
     self._month_masks_by_year = {}
     for fn in glob.glob(os.path.join(self.dir, '[0-9][0-9][0-9][0-9]-[0-9][0-9].csv')):

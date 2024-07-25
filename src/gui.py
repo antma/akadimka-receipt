@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 import tkinter as tk
+import tkinter.ttk as ttk
 import tkinter.filedialog as fd
 
 import git
@@ -20,12 +21,32 @@ class MainWindow:
     self.db_storage = db_storage
     self.root.title(f'Receipt-{git.hash_version()}')
     self._create_menubar()
+    self._create_year_combobox()
   def _create_menubar(self):
     self.menubar = tk.Menu(self.root)
     self.root.configure(menu=self.menubar)
     baseMenu = tk.Menu(self.menubar)
     self.menubar.add_cascade(label="База", menu=baseMenu)
     baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
+  def _create_year_combobox(self):
+    self._year = 0
+    self.currentYear = tk.StringVar()
+    self.yearCombobox = ttk.Combobox(self.root, textvariable = self.currentYear)
+    years = list(map(str, self.db_storage.available_years()))
+    last_year = None
+    if len(years) > 0:
+      last_year = years[-1]
+    self.yearCombobox['values'] = years
+    self.currentYear.trace("w", lambda varname, _, operation: self._change_current_year())
+    if not last_year is None:
+      self.currentYear.set(last_year)
+      self._change_current_year()
+    self.yearCombobox.pack()
+  def _change_current_year(self):
+    cur = int(self.yearCombobox.get())
+    if self._year != cur:
+      logging.debug(f'Modifing current year to {cur}')
+      self._year = cur
   def _add_pdf_file(self, pdf_filename):
     tmp_tsv = io_utils.temporary_filename('out.tsv')
     if pdf_utils.pdf_to_tsv(pdf_filename, tmp_tsv) != 0:
