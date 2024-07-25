@@ -64,7 +64,7 @@ class Storage:
     return a
   def load_year_data(self, year):
     a = [ [] for t in self.schema]
-    mask = self._month_masks_by_year.get(0)
+    mask = self._month_masks_by_year.get(year, 0)
     months = []
     for month in range(1, 13):
       if (mask & (1 << month)) != 0:

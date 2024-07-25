@@ -2,6 +2,7 @@
 import io
 import logging
 import os
+import pprint
 import sys
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -36,6 +37,7 @@ class MainWindow:
     last_year = None
     if len(years) > 0:
       last_year = years[-1]
+    logging.debug('last_year = %s', last_year)
     self.yearCombobox['values'] = years
     self.currentYear.trace("w", lambda varname, _, operation: self._change_current_year())
     if not last_year is None:
@@ -43,10 +45,14 @@ class MainWindow:
       self._change_current_year()
     self.yearCombobox.pack()
   def _change_current_year(self):
-    cur = int(self.yearCombobox.get())
+    cur = int(self.currentYear.get())
     if self._year != cur:
       logging.debug(f'Modifing current year to {cur}')
-      self._year = cur
+      self.set_year(cur)
+  def set_year(self, year):
+    self._year = year
+    data = self.db_storage.load_year_data(year)
+    logging.debug('%s', pprint.pformat(data))
   def _add_pdf_file(self, pdf_filename):
     tmp_tsv = io_utils.temporary_filename('out.tsv')
     if pdf_utils.pdf_to_tsv(pdf_filename, tmp_tsv) != 0:
