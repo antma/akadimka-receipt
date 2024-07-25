@@ -16,19 +16,37 @@ import schema
 import storage
 import tsv
 
+def float_value(s):
+  if (s == '-') or (s == ''): return 0.0
+  return float(s.replace(',', '.'))
+
+def remove_all_widgets_from_frame(frame):
+  """
+  https://stackoverflow.com/a/50657381/14024582
+  """
+  for widget in frame.winfo_children():
+    widget.destroy()
+
 class MainWindow:
   def __init__(self, root, db_storage):
     self.root = root
+    self.root.minsize(width=1600,height=900)
     self.db_storage = db_storage
     self.root.title(f'Receipt-{git.hash_version()}')
     self._create_menubar()
+    self._create_table()
     self._create_year_combobox()
+    self._pack_widgets()
   def _create_menubar(self):
     self.menubar = tk.Menu(self.root)
     self.root.configure(menu=self.menubar)
     baseMenu = tk.Menu(self.menubar)
     self.menubar.add_cascade(label="База", menu=baseMenu)
     baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
+  def _create_table(self):
+    #self.table = ttk.Treeview(self.root)
+    self.table = ttk.Frame(self.root)
+    self.table.columnconfigure(0, weight=1)
   def _create_year_combobox(self):
     self._year = 0
     self.currentYear = tk.StringVar()
@@ -43,16 +61,55 @@ class MainWindow:
     if not last_year is None:
       self.currentYear.set(last_year)
       self._change_current_year()
+  def _pack_widgets(self):
     self.yearCombobox.pack()
+    self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
     cur = int(self.currentYear.get())
     if self._year != cur:
       logging.debug(f'Modifing current year to {cur}')
       self.set_year(cur)
+  def _add_label_to_table(self, row, column, text, bg = None, columnspan = None):
+    d = { 'text': text, 'anchor': 'center', 'justify': 'center'} 
+    if not bg is None:
+      d["bg"] = bg
+    label = tk.Label(self.table, **d)
+    d = {"row": row, "column": column}
+    if not columnspan is None:
+      d["columnspan"] = columnspan
+    label.grid(**d)
+
   def set_year(self, year):
     self._year = year
-    data = self.db_storage.load_year_data(year)
+    months, data = self.db_storage.load_year_data(year)
     logging.debug('%s', pprint.pformat(data))
+    remove_all_widgets_from_frame(self.table)
+    if len(months) == 0:
+      return
+    w = len(data[0]) // len(months)
+    for i, month in enumerate(months):
+      name = tsv.get_month_by_id(month)
+      self._add_label_to_table(0, 1 + i * w, name, None, w)
+    for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
+      self._add_label_to_table(i + 1, 0, n[0])
+      for j, p in enumerate(v):
+        bg = None
+        c = float_value(p) 
+        if c < 1e-6: bg = "gray"
+        if j >= 4:
+          c -= float_value(v[j-4])
+          if c > 1e-6: bg = "green"
+          if c < -1e-6: bg = "red"
+        self._add_label_to_table(i + 1, j + 1, p, bg)
+
+    """
+    for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
+      name = f'col{i}'
+      self.table.insert('', 'end', name, text = n[0])
+      for p in v:
+        self.table.insert(name, 'end', text = p)
+    """
+
   def _add_pdf_file(self, pdf_filename):
     tmp_tsv = io_utils.temporary_filename('out.tsv')
     if pdf_utils.pdf_to_tsv(pdf_filename, tmp_tsv) != 0:

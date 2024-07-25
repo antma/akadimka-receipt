@@ -4,6 +4,13 @@ import csv
 import logging
 import re
 
+#https://ru.stackoverflow.com/questions/810304/Как-вывести-названия-месяцев-без-склонения-в-calendar
+_RU_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+
+def get_month_by_id(month):
+  if 1 <= month <= 12: return _RU_MONTHS[month-1]
+  return None
+
 class Row:
   def __init__(self, columns, row):
     for (key, value) in zip(columns, row):
@@ -21,9 +28,7 @@ def _lines_with_attr(line, attr):
 class NumberRecognizer:
   def __init__(self):
     self.re_number = re.compile(r'\d{1,10}((\.|,)\d{0,6})?')
-    #https://ru.stackoverflow.com/questions/810304/Как-вывести-названия-месяцев-без-склонения-в-calendar
-    months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
-    self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(months)))
+    self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(_RU_MONTHS)))
     self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
     return not self.re_number.fullmatch(s) is None
