@@ -17,7 +17,7 @@ import storage
 import tsv
 
 def float_value(s):
-  if (s == '-') or (s == ''): return 0.0
+  if (s == '-') or (s == '') or (s == '?'): return 0.0
   return float(s.replace(',', '.'))
 
 def remove_all_widgets_from_frame(frame):
@@ -65,10 +65,7 @@ class MainWindow:
     self.yearCombobox.pack()
     self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
-    cur = int(self.currentYear.get())
-    if self._year != cur:
-      logging.debug(f'Modifing current year to {cur}')
-      self.set_year(cur)
+    self.set_year(int(self.currentYear.get()))
   def _add_label_to_table(self, row, column, text, bg = None, columnspan = None):
     d = { 'text': text, 'anchor': 'center', 'justify': 'center'} 
     if not bg is None:
@@ -78,10 +75,8 @@ class MainWindow:
     if not columnspan is None:
       d["columnspan"] = columnspan
     label.grid(**d)
-
-  def set_year(self, year):
-    self._year = year
-    months, data = self.db_storage.load_year_data(year)
+  def reload_table(self):
+    months, data = self.db_storage.load_year_data(self._year)
     logging.debug('%s', pprint.pformat(data))
     remove_all_widgets_from_frame(self.table)
     if len(months) == 0:
@@ -95,21 +90,17 @@ class MainWindow:
       for j, p in enumerate(v):
         bg = None
         c = float_value(p) 
-        if c < 1e-6: bg = "gray"
+        if p == '?': bg = "gray"
         if j >= 4:
           c -= float_value(v[j-4])
-          if c > 1e-6: bg = "green"
-          if c < -1e-6: bg = "red"
+          if c < -1e-6: bg = "green"
+          if c > 1e-6: bg = "red"
         self._add_label_to_table(i + 1, j + 1, p, bg)
-
-    """
-    for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
-      name = f'col{i}'
-      self.table.insert('', 'end', name, text = n[0])
-      for p in v:
-        self.table.insert(name, 'end', text = p)
-    """
-
+  def set_year(self, year):
+    if self._year != year:
+      logging.debug(f'Modifing current year to {year}')
+      self._year = year
+      self.reload_table()
   def _add_pdf_file(self, pdf_filename):
     tmp_tsv = io_utils.temporary_filename('out.tsv')
     if pdf_utils.pdf_to_tsv(pdf_filename, tmp_tsv) != 0:

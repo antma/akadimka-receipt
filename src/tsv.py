@@ -122,7 +122,7 @@ class ReceiptLines:
     assert((n is None) or (len(n) >= columns))
     if n is None:
       logging.warning(f'row "{name}" is broken in {self.first_strdate()}')
-      t = (name, '-', '-', '-', '-')
+      t = (name, '?', '?', '?', '?')
     else:
       if len(n) > columns:
         logging.warning(f'row "{name}" contains more numbers ({len(n)}) then expected ({columns}). Please, recheck it manually.')
