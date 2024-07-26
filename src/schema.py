@@ -9,11 +9,11 @@ def load(filename):
   with open(filename, 'r', newline='', encoding = 'UTF8') as csvfile:
     reader = csv.reader(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     header = next(reader)
-    if header != ['name', 'columns']:
+    if header != ['name', 'columns', 'units']:
       logging.error('load: schema header mismatched')
       return None
     for line, t in enumerate(reader):
-      if len(t) != 2:
+      if len(t) != 3:
         logging.error(f'load: expected exactly 2 fields in a row (file: "{filename}", line {line+2})')
         return None
       try:
@@ -24,5 +24,5 @@ def load(filename):
       if (cols < 3) or (cols > 4):
         logging.error(f'load: number of columns could be only 3 or 4 (file: "{filename}", line {line+2})')
         return None
-      a.append((t[0], cols))
+      a.append((t[0], cols, t[2]))
   return a
