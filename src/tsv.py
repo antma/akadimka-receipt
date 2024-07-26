@@ -1,4 +1,7 @@
 # -*- coding: UTF8 -*-
+"""
+разбор файлов в формате tsv, полученных от утилиты pdftotext, согласно заданной схемы
+"""
 from collections import defaultdict
 import csv
 import logging

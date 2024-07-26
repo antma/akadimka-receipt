@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: UTF8 -*-
-
+""" deprecated console script """
 #standard python modules
 import argparse
 import logging
