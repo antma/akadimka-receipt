@@ -85,9 +85,12 @@ class MainWindow:
     if len(months) == 0:
       return
     w = len(data[0]) // len(months)
+    #separators: 1, 1 + (w + 1), ...
     for i, month in enumerate(months):
       name = tsv.get_month_by_id(month)
-      self._add_label_to_table(0, 1 + i * w, name, None, w)
+      self._add_label_to_table(0, 2 + i * (w + 1), name, None, w)
+      sep = ttk.Separator(self.table, orient = 'vertical')
+      sep.grid(row = 0, column = 1 + i * (w + 1), rowspan = 1 + len(self.db_storage.schema), sticky = 'ns')
     for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
       self._add_label_to_table(i + 1, 0, n[0])
       for j, p in enumerate(v):
@@ -104,7 +107,8 @@ class MainWindow:
             if c < -1e-6:
               #decrease
               bg = "green"
-        self._add_label_to_table(i + 1, j + 1, p, bg)
+        col1, col2 = divmod(j, w)
+        self._add_label_to_table(i + 1, 2 + col1 * (w + 1) + col2, p, bg)
   def set_year(self, year):
     if self._year != year:
       logging.debug(f'Modifing current year to {year}')
