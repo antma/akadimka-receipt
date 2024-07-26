@@ -17,6 +17,7 @@ import storage
 import tsv
 
 def float_value(s):
+  if s == '?': return None
   if (s == '-') or (s == '') or (s == '?'): return 0.0
   return float(s.replace(',', '.'))
 
@@ -47,27 +48,29 @@ class MainWindow:
     #self.table = ttk.Treeview(self.root)
     self.table = ttk.Frame(self.root)
     self.table.columnconfigure(0, weight=1)
+  def reload_combobox(self):
+    years = list(map(str, self.db_storage.available_years()))
+    self.yearCombobox['values'] = years
+    if self._year == 0:
+      last_year = None
+      if len(years) > 0:
+        last_year = years[-1]
+      if not last_year is None:
+        self.currentYear.set(last_year)
+        self._change_current_year()
   def _create_year_combobox(self):
     self._year = 0
     self.currentYear = tk.StringVar()
-    self.yearCombobox = ttk.Combobox(self.root, textvariable = self.currentYear)
-    years = list(map(str, self.db_storage.available_years()))
-    last_year = None
-    if len(years) > 0:
-      last_year = years[-1]
-    logging.debug('last_year = %s', last_year)
-    self.yearCombobox['values'] = years
     self.currentYear.trace("w", lambda varname, _, operation: self._change_current_year())
-    if not last_year is None:
-      self.currentYear.set(last_year)
-      self._change_current_year()
+    self.yearCombobox = ttk.Combobox(self.root, textvariable = self.currentYear)
+    self.reload_combobox()
   def _pack_widgets(self):
     self.yearCombobox.pack()
     self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
     self.set_year(int(self.currentYear.get()))
   def _add_label_to_table(self, row, column, text, bg = None, columnspan = None):
-    d = { 'text': text, 'anchor': 'center', 'justify': 'center'} 
+    d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
     if not bg is None:
       d["bg"] = bg
     label = tk.Label(self.table, **d)
@@ -89,12 +92,18 @@ class MainWindow:
       self._add_label_to_table(i + 1, 0, n[0])
       for j, p in enumerate(v):
         bg = None
-        c = float_value(p) 
-        if p == '?': bg = "gray"
-        if j >= 4:
-          c -= float_value(v[j-4])
-          if c < -1e-6: bg = "green"
-          if c > 1e-6: bg = "red"
+        c = float_value(p)
+        if c is None: bg = "gray"
+        elif j >= w:
+          c2 = float_value(v[j-w])
+          if not c2 is None:
+            c -= c2
+            if c > 1e-6:
+              #increase
+              bg = "red"
+            if c < -1e-6:
+              #decrease
+              bg = "green"
         self._add_label_to_table(i + 1, j + 1, p, bg)
   def set_year(self, year):
     if self._year != year:
@@ -110,7 +119,11 @@ class MainWindow:
     date = rl.first_date
     if not date is None:
       year, month = date
-      self.db_storage.save_csv(year, month, rl)
+      flags = self.db_storage.save_csv(year, month, rl)
+      if (flags & storage.FLAG_NEW_YEAR) != 0:
+        self.reload_combobox()
+      if (flags & storage.FLAG_NEW_MONTH) != 0:
+        self.reload_table()
     logging.info(f'Removing temp file "{tmp_tsv}"')
     os.unlink(tmp_tsv)
   def add_pdf_files(self):

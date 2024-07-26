@@ -8,6 +8,10 @@ import re
 
 import io_utils
 import schema
+import tsv
+
+FLAG_NEW_YEAR = 1
+FLAG_NEW_MONTH = 2
 
 def _compute_csv_filename(storage_dir, year, month):
   """
@@ -31,8 +35,15 @@ class Storage:
   def compute_csv_filename(self, year, month):
     return _compute_csv_filename(self.dir, year, month)
   def _add_month(self, year, month):
+    res = 0
     if 1 <= month <= 12:
-      self._month_masks_by_year[year] = self._month_masks_by_year.get(year, 0) | (1 << month)
+      bit = 1 << month
+      old = self._month_masks_by_year.get(year, 0)
+      if old == 0: res += FLAG_NEW_YEAR
+      if (old & bit) == 0:
+        self._month_masks_by_year[year] = old + bit
+        res += FLAG_NEW_MONTH
+    return res
   def _scan(self):
     reg_exp = re.compile(r'(\d{4})-(\d\d).csv')
     self._month_masks_by_year = {}
@@ -75,12 +86,17 @@ class Storage:
         for i, v in enumerate(d):
           a[i].extend(v)
     return (months, a)
-  def save_csv(self, year, month, rl):
+  def save_csv(self, year: int, month: int, rl: tsv.ReceiptLines) -> int:
+    """
+    returns combination of flags (NEW_YEAR and NEW_MONTH)
+    """
     #TODO: consider case when csv file is already exist
+    res = 0
     csv_filename = self.compute_csv_filename(year, month)
     with open(csv_filename, 'w', newline='', encoding = 'UTF8') as csvfile:
       rl.export_csv(csvfile, self.schema)
-      self._add_month(year, month)
+      res += self._add_month(year, month)
+    return res
 if __name__ == "__main__":
   import doctest
   doctest.testmod(verbose=True)
