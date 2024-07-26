@@ -29,6 +29,11 @@ def remove_all_widgets_from_frame(frame):
   for widget in frame.winfo_children():
     widget.destroy()
 
+def _tip(window, hint):
+  """ https://stackoverflow.com/a/65125558/14024582 """
+  from idlelib.tooltip import Hovertip
+  tip = Hovertip(window, hint)
+
 class MainWindow:
   def __init__(self, root, db_storage):
     self.root = root
@@ -82,6 +87,7 @@ class MainWindow:
     if not columnspan is None:
       d["columnspan"] = columnspan
     label.grid(**d)
+    return label
   def reload_table(self):
     months, data = self.db_storage.load_year_data(self._year)
     logging.debug('%s', pprint.pformat(data))
