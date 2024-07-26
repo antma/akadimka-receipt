@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.filedialog as fd
+import tkinter.font as tkFont
 
 import git
 import io_utils
@@ -33,6 +34,7 @@ class MainWindow:
     self.root = root
     self.root.minsize(width=1600,height=900)
     self.db_storage = db_storage
+    self._bold_font = tkFont.Font(weight="bold")
     self.root.title(f'Receipt-{git.hash_version()}')
     self._create_menubar()
     self._create_table()
@@ -45,8 +47,8 @@ class MainWindow:
     self.menubar.add_cascade(label="База", menu=baseMenu)
     baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
   def _create_table(self):
-    #self.table = ttk.Treeview(self.root)
-    self.table = ttk.Frame(self.root)
+    self.table = tk.Frame(self.root)
+    #self.table = tk.Frame(self.root, bd = 10, relief = tk.SUNKEN)
     self.table.columnconfigure(0, weight=1)
   def reload_combobox(self):
     years = list(map(str, self.db_storage.available_years()))
@@ -69,10 +71,12 @@ class MainWindow:
     self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
     self.set_year(int(self.currentYear.get()))
-  def _add_label_to_table(self, row, column, text, fg = None, columnspan = None):
+  def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None):
     d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
     if not fg is None:
       d["fg"] = fg
+    if not font is None:
+      d["font"] = font
     label = tk.Label(self.table, **d)
     d = {"row": row, "column": column}
     if not columnspan is None:
@@ -85,15 +89,17 @@ class MainWindow:
     if len(months) == 0:
       return
     w = len(data[0]) // len(months)
-    #separators: 2, 2 + (w + 1), ...
+    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
+    sep.grid(row = 0, column = 1, rowspan = 3 + len(self.db_storage.schema), sticky = 'ns')
+    self._add_label_to_table(1, 2, 'ед.изм.')
     for i, month in enumerate(months):
       name = tsv.get_month_by_id(month)
-      self._add_label_to_table(0, 3 + i * (w + 1), name, None, w)
-      sep = ttk.Separator(self.table, orient = 'vertical')
-      sep.grid(row = 0, column = 2 + i * (w + 1), rowspan = 1 + len(self.db_storage.schema), sticky = 'ns')
+      self._add_label_to_table(1, 4 + i * (2 * w), name, None, 2 * w)
+      sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
+      sep.grid(row = 0, column = 3 + i * (2 * w), rowspan = 3 + len(self.db_storage.schema), sticky = 'ns')
     for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
-      self._add_label_to_table(i + 1, 0, n[0])
-      self._add_label_to_table(i + 1, 1, n[2])
+      self._add_label_to_table(i + 3, 0, n[0])
+      self._add_label_to_table(i + 3, 2, n[2], font = self._bold_font)
       for j, p in enumerate(v):
         bg = None
         c = float_value(p)
@@ -109,7 +115,17 @@ class MainWindow:
               #decrease
               bg = "green"
         col1, col2 = divmod(j, w)
-        self._add_label_to_table(i + 1, 3 + col1 * (w + 1) + col2, p, bg)
+        self._add_label_to_table(i + 3, 4 + col1 * (2 * w) + 2 * col2, p, bg)
+        if col2 > 0:
+          sep = ttk.Separator(self.table, orient = 'vertical')
+          sep.grid(row = 3, column = 4 + col1 * (2 * w) + 2 * col2 - 1, rowspan = 2 + len(self.db_storage.schema), sticky = 'ns')
+    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
+    sep.grid(row = 0, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
+    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
+    sep.grid(row = 2, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
+    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
+    sep.grid(row = 3 + len(self.db_storage.schema), column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
+
   def set_year(self, year):
     if self._year != year:
       logging.debug(f'Modifing current year to {year}')
