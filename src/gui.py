@@ -69,10 +69,10 @@ class MainWindow:
     self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
     self.set_year(int(self.currentYear.get()))
-  def _add_label_to_table(self, row, column, text, bg = None, columnspan = None):
+  def _add_label_to_table(self, row, column, text, fg = None, columnspan = None):
     d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
-    if not bg is None:
-      d["bg"] = bg
+    if not fg is None:
+      d["fg"] = fg
     label = tk.Label(self.table, **d)
     d = {"row": row, "column": column}
     if not columnspan is None:
