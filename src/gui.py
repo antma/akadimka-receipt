@@ -76,13 +76,15 @@ class MainWindow:
     self.table.pack(fill="both", expand=True)
   def _change_current_year(self):
     self.set_year(int(self.currentYear.get()))
-  def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None):
+  def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None, hint = None):
     d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
     if not fg is None:
       d["fg"] = fg
     if not font is None:
       d["font"] = font
     label = tk.Label(self.table, **d)
+    if not hint is None:
+      _tip(label, hint)
     d = {"row": row, "column": column}
     if not columnspan is None:
       d["columnspan"] = columnspan
@@ -103,6 +105,7 @@ class MainWindow:
       self._add_label_to_table(1, 4 + i * (2 * w), name, None, 2 * w)
       sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
       sep.grid(row = 0, column = 3 + i * (2 * w), rowspan = 3 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
+    columns_names = self.db_storage.schema.columns_names()
     for i, (n, v) in enumerate(zip(self.db_storage.schema.rows, data)):
       self._add_label_to_table(i + 3, 0, n[0])
       self._add_label_to_table(i + 3, 2, n[1], font = self._bold_font)
@@ -121,7 +124,7 @@ class MainWindow:
               #decrease
               bg = "green"
         col1, col2 = divmod(j, w)
-        self._add_label_to_table(i + 3, 4 + col1 * (2 * w) + 2 * col2, p, bg)
+        self._add_label_to_table(i + 3, 4 + col1 * (2 * w) + 2 * col2, p, bg, None, hint = columns_names[col2])
         if col2 > 0:
           sep = ttk.Separator(self.table, orient = 'vertical')
           sep.grid(row = 3, column = 4 + col1 * (2 * w) + 2 * col2 - 1, rowspan = 2 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
