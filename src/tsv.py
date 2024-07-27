@@ -32,7 +32,7 @@ def _lines_with_attr(line, attr):
 
 class NumberRecognizer:
   def __init__(self):
-    self.re_number = re.compile(r'\d{1,10}((\.|,)\d{0,6})?')
+    self.re_number = re.compile(r'-?\d{1,10}((\.|,)\d{0,6})?')
     self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(_RU_MONTHS)))
     self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
