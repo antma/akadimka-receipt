@@ -7,6 +7,8 @@ import csv
 import logging
 import re
 
+import schema
+
 #https://ru.stackoverflow.com/questions/810304/Как-вывести-названия-месяцев-без-склонения-в-calendar
 _RU_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 
@@ -34,7 +36,7 @@ class NumberRecognizer:
     self.months = dict(map(lambda x: (x[1], x[0] + 1), enumerate(_RU_MONTHS)))
     self.re_year = re.compile(r'20\d\d')
   def is_number(self, s):
-    return not self.re_number.fullmatch(s) is None
+    return (s == '-') or (not self.re_number.fullmatch(s) is None)
   def get_month_number(self, s):
     """
     >>> NumberRecognizer().get_month_number('Май')
@@ -91,13 +93,21 @@ class _Line:
   def matched(self, s):
     """ ' / ' в названии строчки s используется как один из вариантов (содержание газонов или уборка снега) """
     return any(map(lambda t: self._startswith(t), s.split(' / ')))
+  def extract(self, columns):
+    max_idx = max(columns)
+    if max_idx >= len(self.numbers):
+      logging.debug(f'Can not extract {columns} from {self.numbers} for {self.name}.')
+      return None
+    a = []
+    for idx in columns:
+      a.append('' if idx < 0 else self.numbers[idx])
+    return a
 
 class ReceiptLines:
   def __init__(self):
     self.nr = NumberRecognizer()
     self.first_date = None
-    self._lines_with_at_least_3_numbers = []
-    self._lines_with_at_least_4_numbers = []
+    self._lines = []
   def first_strdate(self):
     d = self.first_date
     if d is None:
@@ -107,36 +117,24 @@ class ReceiptLines:
     l = _Line(rows, self.nr, self.first_date is None)
     if (self.first_date is None) and (not l.date is None):
       self.first_date = l.date
-    nc = len(l.numbers)
-    if nc >= 3:
-      self._lines_with_at_least_3_numbers.append(l)
-    if nc >= 4:
-      self._lines_with_at_least_4_numbers.append(l)
+    self._lines.append(l)
   def get_numbers(self, name, columns):
-    l = self._lines_with_at_least_3_numbers if columns == 3 \
-        else self._lines_with_at_least_3_numbers
-    try:
-      p = next(filter(lambda x: x.matched(name), l))
-      return p.numbers
-    except StopIteration:
-      return None
+    for l in self._lines:
+      if not l.matched(name): continue
+      r = l.extract(columns)
+      if not r is None:
+        return r
+    return None
   def _export_row(self, writer, name, columns):
     n = self.get_numbers(name, columns)
-    assert((n is None) or (len(n) >= columns))
     if n is None:
       logging.warning(f'row "{name}" is broken in {self.first_strdate()}')
-      t = (name, '?', '?', '?', '?')
-    else:
-      if len(n) > columns:
-        logging.warning(f'row "{name}" contains more numbers ({len(n)}) then expected ({columns}). Please, recheck it manually.')
-      if columns == 3:
-        t = (name, n[0], '-', n[1], n[2])
-      else:
-        t = (name, n[0], n[1], n[2], n[3])
-    writer.writerow(t)
-  def export_csv(self, csvfile, extraction_schema):
+      n = ['?' for _ in columns]
+    n.insert(0, name)
+    writer.writerow(n)
+  def export_csv(self, csvfile, extraction_schema: schema.ExtractionSchema):
     writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for (name, columns) in extraction_schema:
+    for (name, units, columns) in extraction_schema.rows:
       self._export_row(writer, name, columns)
 
 def _group_by(rows, attr):

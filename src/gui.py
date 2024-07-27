@@ -96,16 +96,16 @@ class MainWindow:
       return
     w = len(data[0]) // len(months)
     sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
-    sep.grid(row = 0, column = 1, rowspan = 3 + len(self.db_storage.schema), sticky = 'ns')
+    sep.grid(row = 0, column = 1, rowspan = 3 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
     self._add_label_to_table(1, 2, 'ед.изм.')
     for i, month in enumerate(months):
       name = tsv.get_month_by_id(month)
       self._add_label_to_table(1, 4 + i * (2 * w), name, None, 2 * w)
       sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
-      sep.grid(row = 0, column = 3 + i * (2 * w), rowspan = 3 + len(self.db_storage.schema), sticky = 'ns')
-    for i, (n, v) in enumerate(zip(self.db_storage.schema, data)):
+      sep.grid(row = 0, column = 3 + i * (2 * w), rowspan = 3 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
+    for i, (n, v) in enumerate(zip(self.db_storage.schema.rows, data)):
       self._add_label_to_table(i + 3, 0, n[0])
-      self._add_label_to_table(i + 3, 2, n[2], font = self._bold_font)
+      self._add_label_to_table(i + 3, 2, n[1], font = self._bold_font)
       for j, p in enumerate(v):
         bg = None
         c = float_value(p)
@@ -124,13 +124,13 @@ class MainWindow:
         self._add_label_to_table(i + 3, 4 + col1 * (2 * w) + 2 * col2, p, bg)
         if col2 > 0:
           sep = ttk.Separator(self.table, orient = 'vertical')
-          sep.grid(row = 3, column = 4 + col1 * (2 * w) + 2 * col2 - 1, rowspan = 2 + len(self.db_storage.schema), sticky = 'ns')
+          sep.grid(row = 3, column = 4 + col1 * (2 * w) + 2 * col2 - 1, rowspan = 2 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
     sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
     sep.grid(row = 0, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
     sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
     sep.grid(row = 2, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
     sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
-    sep.grid(row = 3 + len(self.db_storage.schema), column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
+    sep.grid(row = 3 + self.db_storage.schema_number_of_rows(), column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
 
   def set_year(self, year):
     if self._year != year:
@@ -163,52 +163,10 @@ class MainWindow:
   def mainloop(self):
     self.root.mainloop()
 
-def on_click():
-  input_filename = askopenfilename(
-    filetypes=[("PDF Files", "*.pdf"), ("All Files", "*.*")]
-  )
-  if not input_filename:
-    return
-  tmp_tsv = 'out.tsv'
-  if pdf_utils.pdf_to_tsv(input_filename, tmp_tsv) != 0:
-    logging.error(f'Can not convert "{input_filename}" PDF file to TSV format.')
-    return
-  rl = tsv.read_and_parse(tmp_tsv)
-  with io.StringIO() as csvfile:
-    rl.export_csv(csvfile, extraction_schema)
-    d = rl.first_strdate()
-    if not d is None:
-      label['text'] = d
-    #https://stackoverflow.com/questions/27966626/how-to-clear-delete-the-contents-of-a-tkinter-text-widget
-    output.delete(1.0, tk.END)
-    output.insert(tk.END, csvfile.getvalue())
-  logging.info(f'Removing temp file "{tmp_tsv}"')
-  os.unlink(tmp_tsv)
-
 log.init_logging('out.log', logging.DEBUG)
-#extraction_schema = schema.load('schema.csv')
-s = storage.Storage('.data', 'schema.csv')
+s = storage.Storage('.data', 'schema.json')
 if not s.is_valid():
   sys.exit(1)
 
 window = MainWindow(tk.Tk(), s)
 window.mainloop()
-
-"""
-window = tk.Tk()
-window.title(f'Receipt-{git.hash_version()}')
-label = tk.Label(text="Output")
-output = tk.Text()
-button = tk.Button(
-  text="Parse PDF file",
-  width=25,
-  height=5,
-  bg="blue",
-  fg="yellow",
-  command = on_click,
-)
-label.pack()
-output.pack(expand=1, fill=tk.BOTH)
-button.pack()
-window.mainloop()
-"""

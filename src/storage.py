@@ -28,13 +28,17 @@ class Storage:
     self.dir = io_utils.path_join(dirname)
     io_utils.create_dir_if_absent(self.dir)
     self.schema_filename = schema_filename
-    self.schema = schema.load(schema_filename)
-    self._month_masks_by_year = {}
-    if self.is_valid():
-      self._max_month_columns = max(map(lambda t: t[1], self.schema))
+    self.schema = schema.ExtractionSchema(schema_filename)
+    if not self.schema.load():
+      self.schema = None
+    else:
+      self._month_masks_by_year = {}
+      self._month_columns = self.schema.columns()
       self._scan()
   def is_valid(self):
-    return not self.schema is None
+    return not self.schema is None 
+  def schema_number_of_rows(self):
+    return len(self.schema.rows)
   def compute_csv_filename(self, year, month):
     return _compute_csv_filename(self.dir, year, month)
   def _add_month(self, year, month):
@@ -66,8 +70,8 @@ class Storage:
     a = []
     with open(csv_filename, 'r', newline='', encoding = 'UTF8') as csvfile:
       reader = csv.reader(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-      for line, (t, data) in enumerate(zip(self.schema, reader)):
-        if len(data) != 1 + self._max_month_columns:
+      for line, (t, data) in enumerate(zip(self.schema.rows, reader)):
+        if len(data) != 1 + self._month_columns:
           logging.error(f'Illegal number of columns in the line {line+1} of the file "{csv_filename}". \
                           It isn''t matched to schema file "{self.schema_filename}"')
           return None
@@ -77,7 +81,9 @@ class Storage:
         a.append(data[1:])
     return a
   def load_year_data(self, year):
-    a = [ [] for t in self.schema]
+    logging.debug(f'load_year_data for {year} year')
+    logging.debug(f'self._month_columns = {self._month_columns}')
+    a = [ [] for _ in self.schema.rows]
     mask = self._month_masks_by_year.get(year, 0)
     months = []
     for month in range(1, 13):
@@ -86,8 +92,8 @@ class Storage:
         if d is None:
           continue
         months.append(month)
-        for i, v in enumerate(d):
-          a[i].extend(v)
+        for w, v in zip(a, d):
+          w.extend(v)
     return (months, a)
   def save_csv(self, year: int, month: int, rl: tsv.ReceiptLines) -> int:
     """
