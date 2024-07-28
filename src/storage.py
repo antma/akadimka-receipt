@@ -36,7 +36,7 @@ class Storage:
       self._month_columns = self.schema.columns()
       self._scan()
   def is_valid(self):
-    return not self.schema is None 
+    return not self.schema is None
   def schema_number_of_rows(self):
     return len(self.schema.rows)
   def compute_csv_filename(self, year, month):
@@ -46,7 +46,8 @@ class Storage:
     if 1 <= month <= 12:
       bit = 1 << month
       old = self._month_masks_by_year.get(year, 0)
-      if old == 0: res += FLAG_NEW_YEAR
+      if old == 0:
+        res += FLAG_NEW_YEAR
       if (old & bit) == 0:
         self._month_masks_by_year[year] = old + bit
         res += FLAG_NEW_MONTH

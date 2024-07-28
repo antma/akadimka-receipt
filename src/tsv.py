@@ -13,7 +13,8 @@ import schema
 _RU_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 
 def get_month_by_id(month):
-  if 1 <= month <= 12: return _RU_MONTHS[month-1]
+  if 1 <= month <= 12:
+    return _RU_MONTHS[month-1]
   return None
 
 class Row:
@@ -120,7 +121,8 @@ class ReceiptLines:
     self._lines.append(l)
   def get_numbers(self, name, columns):
     for l in self._lines:
-      if not l.matched(name): continue
+      if not l.matched(name):
+        continue
       r = l.extract(columns)
       if not r is None:
         return r
@@ -134,7 +136,7 @@ class ReceiptLines:
     writer.writerow(n)
   def export_csv(self, csvfile, extraction_schema: schema.ExtractionSchema):
     writer = csv.writer(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    for (name, units, columns) in extraction_schema.rows:
+    for (name, _units, columns) in extraction_schema.rows:
       self._export_row(writer, name, columns)
 
 def _group_by(rows, attr):

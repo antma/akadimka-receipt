@@ -123,9 +123,11 @@ class BrowsableGridTable:
       self._add_label_to_grid(rl[1], i+1, 1)
       for j, p in enumerate(v):
         fg = None
+        hint = None
         c = float_value(p)
         if c is None:
           fg = "gray"
+          hint = "нет данных в квитанции"
         elif j >= self._col_per_month:
           c2 = float_value(v[j-self._col_per_month])
           if not c2 is None:
@@ -136,7 +138,7 @@ class BrowsableGridTable:
             if c < -1e-6:
               #decrease
               fg = "green"
-        rl[j+2] = _create_label(frame, p, fg)
+        rl[j+2] = _create_label(frame, p, fg, None, hint)
     rl = self._labels[0]
     rl[1] = _create_label(frame, 'ед.изм.')
     self._add_label_to_grid(rl[1], 0, 1)

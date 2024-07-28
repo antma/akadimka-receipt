@@ -17,7 +17,7 @@ class ExtractionSchema:
     self._d = None
     self.rows = None
   def load(self):
-    with open(self._json_filename, 'r') as json_file:
+    with open(self._json_filename, 'r', encoding = 'UTF8') as json_file:
       self._d = json.load(json_file)
       logging.debug('%s', pprint.pformat(self._d))
       return self._rows_schema_load(os.path.join(os.path.dirname(self._json_filename), self._d["rows_schema_csv_filename"]))
