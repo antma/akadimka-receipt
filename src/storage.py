@@ -72,8 +72,8 @@ class Storage:
       reader = csv.reader(csvfile, delimiter=' ', quotechar='"', quoting=csv.QUOTE_MINIMAL)
       for line, (t, data) in enumerate(zip(self.schema.rows, reader)):
         if len(data) != 1 + self._month_columns:
-          logging.error(f'Illegal number of columns in the line {line+1} of the file "{csv_filename}". \
-                          It isn''t matched to schema file "{self.schema_filename}"')
+          logging.error(f'Illegal number of columns in the line {line+1} of the file "{csv_filename}". '
+                        f'It isn\'t matched to schema file "{self.schema_filename}"')
           return None
         if t[0] != data[0]:
           logging.error(f'Line {line+1} in the file "{csv_filename}" isn''t matched to schema file "{self.schema_filename}"')

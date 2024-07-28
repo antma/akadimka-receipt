@@ -34,16 +34,131 @@ def _tip(window, hint):
   from idlelib.tooltip import Hovertip
   tip = Hovertip(window, hint)
 
+def _create_label(parent, text, fg = None, font = None, hint = None):
+  d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
+  if not fg is None:
+    d["fg"] = fg
+  if not font is None:
+    d["font"] = font
+  label = tk.Label(parent, **d)
+  if not hint is None:
+    _tip(label, hint)
+  return label
+
+class BrowsableGridTable:
+  """ таблица с разделителями,
+      фиксированными столбцами описания,
+      окно обзора можно двигать по месяцам
+  """
+  def _add_label_to_grid(self, label, row, column):
+    logging.debug(f"_add_label_to_grid: text = {label['text']}, row = {row}, column = {column}")
+    #четные позиции для разделителей, нечетные для label
+    d = { 'row': 2 * row + 1, 'column': 2 * column + 1 }
+    month_label = row + 1 == self._row_count
+    if month_label:
+      d['columnspan'] = self._month_label_colspan
+    label.grid(**d)
+  def is_empty(self):
+    return len(self._months) == 0
+  def scrollable_area_window_change_visibility(self, show = True):
+    if self.is_empty():
+      return
+    it = enumerate(self._labels)
+    #skip header (it immutable)
+    next(it)
+    for i, rl in it:
+      for j in range(0, self._visible_months * self._col_per_month):
+        l = rl[2 + self._first_month * self._col_per_month + j]
+        if l is None: continue
+        if show:
+          self._add_label_to_grid(l, i, j + 2)
+        else:
+          #https://stackoverflow.com/questions/23189610/how-to-remove-widgets-from-grid-in-tkinter
+          l.grid_forget()
+  def go_next(self):
+    if self._first_month + 1 + self._visible_months <= len(self._months):
+      self.scrollable_area_window_change_visibility(False)
+      self._first_month += 1
+      self.scrollable_area_window_change_visibility(True)
+  def go_back(self):
+    if self._first_month  > 0:
+      self.scrollable_area_window_change_visibility(False)
+      self._first_month -= 1
+      self.scrollable_area_window_change_visibility(True)
+  def __init__(self, frame: tk.Frame, s: storage.Storage, year: int, max_months: int):
+    months, data = s.load_year_data(year)
+    self._parent = frame
+    self._months = months
+    self._data = data
+    tot_months = len(months)
+    if tot_months == 0:
+      return
+    #header, rows, footer (month name)
+    self._col_per_month = len(data[0]) // tot_months
+    self._row_count = 2 + len(data)
+    self._col_count = 2 + len(data[0])
+    self._visible_months = min(max_months, tot_months)
+    self._month_label_colspan = 2 * self._col_per_month - 1
+    self._first_month = 0
+    self._row_grid = 2 * self._row_count + 1
+    self._col_grid = 2 * (2 + self._visible_months * self._col_per_month) + 1
+    for row in range(0, self._row_grid, 2):
+      sep = ttk.Separator(frame, orient = tk.HORIZONTAL)
+      sep.grid(row = row, column = 0, columnspan = self._col_grid - 1, sticky = tk.W + tk.E)
+    for col in range(0, self._col_grid, 2):
+      sep = ttk.Separator(frame, orient = tk.VERTICAL)
+      rowspan = self._row_grid - 1
+      c = col // 2
+      if (c >= 2) and ((c - 2) % self._col_per_month != 0): 
+        rowspan -= 2
+      sep.grid(row = 0, column = col, rowspan = rowspan, sticky = tk.N + tk.S)
+    self._labels = [ [None] * self._col_grid for _ in range(self._row_grid)]
+    bold_font = tkFont.Font(weight="bold")
+    for i, (n, v) in enumerate(zip(s.schema.rows, data)):
+      rl = self._labels[i+1]
+      rl[0] = _create_label(frame, n[0])
+      self._add_label_to_grid(rl[0], i+1, 0)
+      rl[1] = _create_label(frame, n[1], font = bold_font)
+      self._add_label_to_grid(rl[1], i+1, 1)
+      for j, p in enumerate(v):
+        fg = None
+        c = float_value(p)
+        if c is None: fg = "gray"
+        elif j >= self._col_per_month:
+          c2 = float_value(v[j-self._col_per_month])
+          if not c2 is None:
+            c -= c2
+            if c > 1e-6:
+              #increase
+              fg = "red"
+            if c < -1e-6:
+              #decrease
+              fg = "green"
+        rl[j+2] = _create_label(frame, p, fg)
+    rl = self._labels[0]
+    rl[1] = _create_label(frame, 'ед.изм.')
+    self._add_label_to_grid(rl[1], 0, 1)
+    columns_names = s.schema.columns_names()
+    for j in range(self._col_per_month * self._visible_months):
+      rl[j+2] = _create_label(frame, columns_names[j % self._col_per_month])
+      self._add_label_to_grid(rl[j+2], 0, j+2)
+    rl = self._labels[self._row_count - 1]
+    for j, month in enumerate(months):
+      name = tsv.get_month_by_id(month)
+      rl[2 + j * self._col_per_month] = _create_label(frame, tsv.get_month_by_id(month))
+    self.scrollable_area_window_change_visibility(True)
+
 class MainWindow:
   def __init__(self, root, db_storage):
     self.root = root
     self.root.minsize(width=1600,height=900)
     self.db_storage = db_storage
+    self.table = None
     self._bold_font = tkFont.Font(weight="bold")
     self.root.title(f'Receipt-{git.hash_version()}')
     self._create_menubar()
-    self._create_table()
-    self._create_year_combobox()
+    self._create_table_frame()
+    self._create_frame_with_buttons()
     self._pack_widgets()
   def _create_menubar(self):
     self.menubar = tk.Menu(self.root)
@@ -51,10 +166,10 @@ class MainWindow:
     baseMenu = tk.Menu(self.menubar)
     self.menubar.add_cascade(label="База", menu=baseMenu)
     baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
-  def _create_table(self):
-    self.table = tk.Frame(self.root)
+  def _create_table_frame(self):
+    self.table_frame = tk.Frame(self.root)
     #self.table = tk.Frame(self.root, bd = 10, relief = tk.SUNKEN)
-    self.table.columnconfigure(0, weight=1)
+    #self.table_frame.columnconfigure(0, weight=1)
   def reload_combobox(self):
     years = list(map(str, self.db_storage.available_years()))
     self.yearCombobox['values'] = years
@@ -69,11 +184,28 @@ class MainWindow:
     self._year = 0
     self.currentYear = tk.StringVar()
     self.currentYear.trace("w", lambda varname, _, operation: self._change_current_year())
-    self.yearCombobox = ttk.Combobox(self.root, textvariable = self.currentYear)
+    self.yearCombobox = ttk.Combobox(self.frame_with_buttons, textvariable = self.currentYear)
     self.reload_combobox()
+  def _go_next(self):
+    if self.table is None:
+      return
+    self.table.go_next()
+  def _go_back(self):
+    if self.table is None:
+      return
+    self.table.go_back()
+  def _create_frame_with_buttons(self):
+    self.frame_with_buttons = tk.Frame(self.root)
+    self.button_next = tk.Button(self.frame_with_buttons, text = 'Следующий месяц', command = lambda: self._go_next())
+    self.button_next.pack(side = tk.RIGHT)
+    self.button_back = tk.Button(self.frame_with_buttons, text = 'Предыдущий месяц', command = lambda: self._go_back())
+    self.button_back.pack(side = tk.LEFT)
+    self._create_year_combobox()
+    self.yearCombobox.pack(side = tk.LEFT)
   def _pack_widgets(self):
-    self.yearCombobox.pack()
-    self.table.pack(fill="both", expand=True)
+    #self.yearCombobox.pack()
+    self.frame_with_buttons.pack(side = tk.TOP)
+    self.table_frame.pack(side = tk.TOP, fill="both", expand=True)
   def _change_current_year(self):
     self.set_year(int(self.currentYear.get()))
   def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None, hint = None):
@@ -91,50 +223,7 @@ class MainWindow:
     label.grid(**d)
     return label
   def reload_table(self):
-    months, data = self.db_storage.load_year_data(self._year)
-    logging.debug('%s', pprint.pformat(data))
-    remove_all_widgets_from_frame(self.table)
-    if len(months) == 0:
-      return
-    w = len(data[0]) // len(months)
-    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
-    sep.grid(row = 0, column = 1, rowspan = 3 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
-    self._add_label_to_table(1, 2, 'ед.изм.')
-    for i, month in enumerate(months):
-      name = tsv.get_month_by_id(month)
-      self._add_label_to_table(1, 4 + i * (2 * w), name, None, 2 * w)
-      sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, width=4)
-      sep.grid(row = 0, column = 3 + i * (2 * w), rowspan = 3 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
-    columns_names = self.db_storage.schema.columns_names()
-    for i, (n, v) in enumerate(zip(self.db_storage.schema.rows, data)):
-      self._add_label_to_table(i + 3, 0, n[0])
-      self._add_label_to_table(i + 3, 2, n[1], font = self._bold_font)
-      for j, p in enumerate(v):
-        bg = None
-        c = float_value(p)
-        if c is None: bg = "gray"
-        elif j >= w:
-          c2 = float_value(v[j-w])
-          if not c2 is None:
-            c -= c2
-            if c > 1e-6:
-              #increase
-              bg = "red"
-            if c < -1e-6:
-              #decrease
-              bg = "green"
-        col1, col2 = divmod(j, w)
-        self._add_label_to_table(i + 3, 4 + col1 * (2 * w) + 2 * col2, p, bg, None, hint = columns_names[col2])
-        if col2 > 0:
-          sep = ttk.Separator(self.table, orient = 'vertical')
-          sep.grid(row = 3, column = 4 + col1 * (2 * w) + 2 * col2 - 1, rowspan = 2 + self.db_storage.schema_number_of_rows(), sticky = 'ns')
-    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
-    sep.grid(row = 0, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
-    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
-    sep.grid(row = 2, column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
-    sep = tk.Frame(self.table, bd=10, relief = tk.SUNKEN, height=4)
-    sep.grid(row = 3 + self.db_storage.schema_number_of_rows(), column = 0, columnspan = len(months) * 2 * w + 3, sticky = 'ew')
-
+    self.table = BrowsableGridTable(self.table_frame, self.db_storage, self._year, 3)
   def set_year(self, year):
     if self._year != year:
       logging.debug(f'Modifing current year to {year}')
