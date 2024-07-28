@@ -1,11 +1,9 @@
 #!/usr/bin/python
-import io
 import logging
 import os
-import pprint
 import sys
 import tkinter as tk
-import tkinter.ttk as ttk
+from tkinter import ttk
 import tkinter.filedialog as fd
 import tkinter.font as tkFont
 
@@ -13,13 +11,14 @@ import git
 import io_utils
 import log
 import pdf_utils
-import schema
 import storage
 import tsv
 
 def float_value(s):
-  if s == '?': return None
-  if (s == '-') or (s == '') or (s == '?'): return 0.0
+  if s == '?':
+    return None
+  if (s == '-') or (s == '') or (s == '?'):
+    return 0.0
   return float(s.replace(',', '.'))
 
 def remove_all_widgets_from_frame(frame):
@@ -69,7 +68,8 @@ class BrowsableGridTable:
     for i, rl in it:
       for j in range(0, self._visible_months * self._col_per_month):
         l = rl[2 + self._first_month * self._col_per_month + j]
-        if l is None: continue
+        if l is None:
+          continue
         if show:
           self._add_label_to_grid(l, i, j + 2)
         else:
@@ -109,7 +109,7 @@ class BrowsableGridTable:
       sep = ttk.Separator(frame, orient = tk.VERTICAL)
       rowspan = self._row_grid - 1
       c = col // 2
-      if (c >= 2) and ((c - 2) % self._col_per_month != 0): 
+      if (c >= 2) and ((c - 2) % self._col_per_month != 0):
         rowspan -= 2
       sep.grid(row = 0, column = col, rowspan = rowspan, sticky = tk.N + tk.S)
     self._labels = [ [None] * self._col_grid for _ in range(self._row_grid)]
@@ -123,7 +123,8 @@ class BrowsableGridTable:
       for j, p in enumerate(v):
         fg = None
         c = float_value(p)
-        if c is None: fg = "gray"
+        if c is None:
+          fg = "gray"
         elif j >= self._col_per_month:
           c2 = float_value(v[j-self._col_per_month])
           if not c2 is None:
@@ -144,7 +145,6 @@ class BrowsableGridTable:
       self._add_label_to_grid(rl[j+2], 0, j+2)
     rl = self._labels[self._row_count - 1]
     for j, month in enumerate(months):
-      name = tsv.get_month_by_id(month)
       rl[2 + j * self._col_per_month] = _create_label(frame, tsv.get_month_by_id(month))
     self.scrollable_area_window_change_visibility(True)
 
@@ -154,7 +154,9 @@ class MainWindow:
     self.root.minsize(width=1600,height=900)
     self.db_storage = db_storage
     self.table = None
-    self._bold_font = tkFont.Font(weight="bold")
+    self._year = 0
+    self.current_year = None
+    self.year_combobox = None
     self.root.title(f'Receipt-{git.hash_version()}')
     self._create_menubar()
     self._create_table_frame()
@@ -163,28 +165,27 @@ class MainWindow:
   def _create_menubar(self):
     self.menubar = tk.Menu(self.root)
     self.root.configure(menu=self.menubar)
-    baseMenu = tk.Menu(self.menubar)
-    self.menubar.add_cascade(label="База", menu=baseMenu)
-    baseMenu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
+    base_menu = tk.Menu(self.menubar)
+    self.menubar.add_cascade(label="База", menu=base_menu)
+    base_menu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
   def _create_table_frame(self):
     self.table_frame = tk.Frame(self.root)
     #self.table = tk.Frame(self.root, bd = 10, relief = tk.SUNKEN)
     #self.table_frame.columnconfigure(0, weight=1)
   def reload_combobox(self):
     years = list(map(str, self.db_storage.available_years()))
-    self.yearCombobox['values'] = years
+    self.year_combobox['values'] = years
     if self._year == 0:
       last_year = None
       if len(years) > 0:
         last_year = years[-1]
       if not last_year is None:
-        self.currentYear.set(last_year)
+        self.current_year.set(last_year)
         self._change_current_year()
   def _create_year_combobox(self):
-    self._year = 0
-    self.currentYear = tk.StringVar()
-    self.currentYear.trace("w", lambda varname, _, operation: self._change_current_year())
-    self.yearCombobox = ttk.Combobox(self.frame_with_buttons, textvariable = self.currentYear)
+    self.current_year = tk.StringVar()
+    self.current_year.trace("w", lambda varname, _, operation: self._change_current_year())
+    self.year_combobox = ttk.Combobox(self.frame_with_buttons, textvariable = self.current_year)
     self.reload_combobox()
   def _go_next(self):
     if self.table is None:
@@ -196,18 +197,18 @@ class MainWindow:
     self.table.go_back()
   def _create_frame_with_buttons(self):
     self.frame_with_buttons = tk.Frame(self.root)
-    self.button_next = tk.Button(self.frame_with_buttons, text = 'Следующий месяц', command = lambda: self._go_next())
+    self.button_next = tk.Button(self.frame_with_buttons, text = 'Следующий месяц', command = self._go_next)
     self.button_next.pack(side = tk.RIGHT)
-    self.button_back = tk.Button(self.frame_with_buttons, text = 'Предыдущий месяц', command = lambda: self._go_back())
+    self.button_back = tk.Button(self.frame_with_buttons, text = 'Предыдущий месяц', command = self._go_back)
     self.button_back.pack(side = tk.LEFT)
     self._create_year_combobox()
-    self.yearCombobox.pack(side = tk.LEFT)
+    self.year_combobox.pack(side = tk.LEFT)
   def _pack_widgets(self):
-    #self.yearCombobox.pack()
+    #self.year_combobox.pack()
     self.frame_with_buttons.pack(side = tk.TOP)
     self.table_frame.pack(side = tk.TOP, fill="both", expand=True)
   def _change_current_year(self):
-    self.set_year(int(self.currentYear.get()))
+    self.set_year(int(self.current_year.get()))
   def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None, hint = None):
     d = { 'text': text, 'anchor': tk.CENTER, 'justify': tk.CENTER}
     if not fg is None:
@@ -255,10 +256,12 @@ class MainWindow:
   def mainloop(self):
     self.root.mainloop()
 
-log.init_logging('out.log', logging.DEBUG)
-s = storage.Storage('.data', 'schema.json')
-if not s.is_valid():
-  sys.exit(1)
+def main():
+  log.init_logging('out.log', logging.DEBUG)
+  schema_storage = storage.Storage('.data', 'schema.json')
+  if not schema_storage.is_valid():
+    sys.exit(1)
+  window = MainWindow(tk.Tk(), schema_storage)
+  window.mainloop()
 
-window = MainWindow(tk.Tk(), s)
-window.mainloop()
+main()

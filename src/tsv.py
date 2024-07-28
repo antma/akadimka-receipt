@@ -92,7 +92,7 @@ class _Line:
     return self.name.startswith(s)
   def matched(self, s):
     """ ' / ' в названии строчки s используется как один из вариантов (содержание газонов или уборка снега) """
-    return any(map(lambda t: self._startswith(t), s.split(' / ')))
+    return any(map(self._startswith, s.split(' / ')))
   def extract(self, columns):
     max_idx = max(columns)
     if max_idx >= len(self.numbers):
