@@ -24,14 +24,15 @@ def _compute_csv_filename(storage_dir, year, month):
   return os.path.join(storage_dir, f'{year}-{month:02d}.csv')
 
 class Storage:
-  def __init__(self, dirname, schema_filename):
-    self.dir = io_utils.path_join(dirname)
-    io_utils.create_dir_if_absent(self.dir)
+  def __init__(self, schema_filename):
     self.schema_filename = schema_filename
     self.schema = schema.ExtractionSchema(schema_filename)
+    self.dir = None
     if not self.schema.load():
       self.schema = None
     else:
+      self.dir = self.schema.db_data_dir()
+      io_utils.create_dir_if_absent(self.dir)
       self._month_masks_by_year = {}
       self._month_columns = self.schema.columns()
       self._scan()

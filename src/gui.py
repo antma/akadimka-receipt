@@ -262,7 +262,7 @@ class MainWindow:
 
 def main():
   log.init_logging('out.log', logging.DEBUG)
-  schema_storage = storage.Storage('.data', 'schema.json')
+  schema_storage = storage.Storage('schema.json')
   if not schema_storage.is_valid():
     sys.exit(1)
   window = MainWindow(tk.Tk(), schema_storage)

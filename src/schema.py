@@ -11,21 +11,27 @@ import logging
 import os
 import pprint
 
+import io_utils
+
 class ExtractionSchema:
   def __init__(self, json_filename):
     self._json_filename = json_filename
     self._d = None
     self.rows = None
-  def load(self):
+  def _path_join(self, path):
+    return io_utils.path_join(os.path.dirname(self._json_filename), path)
+  def load(self) -> bool:
     with open(self._json_filename, 'r', encoding = 'UTF8') as json_file:
       self._d = json.load(json_file)
       logging.debug('%s', pprint.pformat(self._d))
-      return self._rows_schema_load(os.path.join(os.path.dirname(self._json_filename), self._d["rows_schema_csv_filename"]))
+      return self._rows_schema_load(self._path_join(self._d["rows_schema_csv_filename"]))
   def _parse_row_columns(self, s):
     l = list(map(int, s.split(',')))
     if any(map(lambda x: -1 > x, l)):
       return None
     return l
+  def db_data_dir(self):
+    return self._path_join(self._d["db_data_dir"])
   def columns(self):
     n = self.columns_names()
     if n is None:

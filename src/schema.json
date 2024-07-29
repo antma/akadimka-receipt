@@ -3,4 +3,5 @@
                      "сумма",
                      "перерасч.",
                      "начислено"],
+  "db_data_dir": ".data",
   "rows_schema_csv_filename": "schema.csv"}

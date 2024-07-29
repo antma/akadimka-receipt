@@ -5,12 +5,19 @@
 import os
 import sys
 
-def path_join(relative_filename):
-  return os.path.join(os.path.dirname(sys.argv[0]), relative_filename)
+def script_dirname():
+  return os.path.dirname(sys.argv[0])
+
+def path_join(dirname, filename):
+  if os.path.isabs(filename):
+    return filename
+  if dirname is None:
+    dirname = script_dirname()
+  return os.path.join(dirname, filename)
 
 def create_dir_if_absent(dirname):
   if not os.path.lexists(dirname):
     os.mkdir(dirname)
 
 def temporary_filename(filename):
-  return path_join(filename)
+  return path_join(None, filename)
