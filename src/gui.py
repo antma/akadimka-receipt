@@ -74,7 +74,7 @@ class BrowsableGridTable:
           self._add_label_to_grid(l, i, j + 2)
         else:
           #https://stackoverflow.com/questions/23189610/how-to-remove-widgets-from-grid-in-tkinter
-          logging.debug(f'call grid_forget() for {l['text']}')
+          logging.debug(f"call grid_forget() for {l['text']}")
           l.grid_forget()
   def go_next(self):
     if self._first_month + 1 + self._visible_months <= len(self._months):
