@@ -1,8 +1,7 @@
 { "columns_names": [ "размер платы",
-                     "норматив/расход(инд.)",
                      "сумма",
                      "перерасч.",
                      "начислено"],
-  "db_data_dir": ".data",
-  "rows_schema_csv_filename": "schema.csv",
-  "title": "ЖКХ"}
+  "db_data_dir": ".data2",
+  "rows_schema_csv_filename": "schema2.csv",
+  "title": "Капитальный ремонт"}

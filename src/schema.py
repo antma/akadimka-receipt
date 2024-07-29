@@ -30,6 +30,8 @@ class ExtractionSchema:
     if any(map(lambda x: -1 > x, l)):
       return None
     return l
+  def title(self):
+    return self._d.get('title', '')
   def db_data_dir(self):
     return self._path_join(self._d["db_data_dir"])
   def columns(self):
