@@ -28,6 +28,7 @@ class Storage:
     self.schema_filename = schema_filename
     self.schema = schema.ExtractionSchema(schema_filename)
     self.dir = None
+    self._scanned = False
     if not self.schema.load():
       self.schema = None
     else:
@@ -35,7 +36,6 @@ class Storage:
       io_utils.create_dir_if_absent(self.dir)
       self._month_masks_by_year = {}
       self._month_columns = self.schema.columns()
-      self._scan()
   def is_valid(self):
     return not self.schema is None
   def schema_number_of_rows(self):
@@ -53,7 +53,9 @@ class Storage:
         self._month_masks_by_year[year] = old + bit
         res += FLAG_NEW_MONTH
     return res
-  def _scan(self):
+  def scan(self):
+    if self._scanned:
+      return
     reg_exp = re.compile(r'(\d{4})-(\d\d).csv')
     self._month_masks_by_year = {}
     for fn in glob.glob(os.path.join(self.dir, '[0-9][0-9][0-9][0-9]-[0-9][0-9].csv')):
@@ -63,11 +65,13 @@ class Storage:
         year = int(m.group(1))
         month = int(m.group(2))
         self._add_month(year, month)
+    self._scanned = True
   def available_years(self):
+    self.scan()
     a = list(self._month_masks_by_year.keys())
     a.sort()
     return a
-  def load_month_data(self, year, month):
+  def _load_month_data(self, year, month):
     csv_filename = self.compute_csv_filename(year, month)
     a = []
     with open(csv_filename, 'r', newline='', encoding = 'UTF8') as csvfile:
@@ -83,6 +87,7 @@ class Storage:
         a.append(data[1:])
     return a
   def load_year_data(self, year):
+    self.scan()
     logging.debug(f'load_year_data for {year} year')
     logging.debug(f'self._month_columns = {self._month_columns}')
     a = [ [] for _ in self.schema.rows]
@@ -90,7 +95,7 @@ class Storage:
     months = []
     for month in range(1, 13):
       if (mask & (1 << month)) != 0:
-        d = self.load_month_data(year, month)
+        d = self._load_month_data(year, month)
         if d is None:
           continue
         months.append(month)
@@ -101,6 +106,7 @@ class Storage:
     """
     returns combination of flags (NEW_YEAR and NEW_MONTH)
     """
+    self.scan()
     #TODO: consider case when csv file is already exist
     res = 0
     csv_filename = self.compute_csv_filename(year, month)
@@ -108,6 +114,20 @@ class Storage:
       rl.export_csv(csvfile, self.schema)
       res += self._add_month(year, month)
     return res
+
+def load_storages(dirname: str) -> list[Storage]:
+  a = []
+  dirname = io_utils.script_dirname()
+  for fn in sorted(glob.glob(io_utils.path_join(dirname, '*.json'))):
+    s = Storage(fn)
+    if not s.is_valid():
+      logging.warning(f'Skip invalid json file "{fn}"')
+    else:
+      a.append(s)
+  if len(a) == 0:
+    logging.error(f'No correct json file was found in "{dirname}"')
+  return a
+
 if __name__ == "__main__":
   import doctest
   doctest.testmod(verbose=True)

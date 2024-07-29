@@ -4,6 +4,7 @@ import os
 import sys
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import tkinter.filedialog as fd
 import tkinter.font as tkFont
 
@@ -114,10 +115,11 @@ class BrowsableGridTable:
         rowspan -= 2
       sep.grid(row = 0, column = col, rowspan = rowspan, sticky = tk.N + tk.S)
     self._labels = [ [None] * self._col_grid for _ in range(self._row_grid)]
-    bold_font = tkFont.Font(weight="bold")
+    normal_font = tkFont.Font(family = 'Times', size = 11, slant = tkFont.ROMAN)
+    bold_font = tkFont.Font(family = 'Times', size = 11, weight = tkFont.BOLD, slant = tkFont.ROMAN)
     for i, (n, v) in enumerate(zip(s.schema.rows, data)):
       rl = self._labels[i+1]
-      rl[0] = _create_label(frame, n[0])
+      rl[0] = _create_label(frame, n[0], font = normal_font)
       self._add_label_to_grid(rl[0], i+1, 0)
       rl[1] = _create_label(frame, n[1], font = bold_font)
       self._add_label_to_grid(rl[1], i+1, 1)
@@ -138,24 +140,25 @@ class BrowsableGridTable:
             if c < -1e-6:
               #decrease
               fg = "green"
-        rl[j+2] = _create_label(frame, p, fg, None, hint)
+        rl[j+2] = _create_label(frame, p, fg, normal_font, hint)
     rl = self._labels[0]
-    rl[1] = _create_label(frame, 'ед.изм.')
+    rl[1] = _create_label(frame, 'ед.изм.', font = normal_font)
     self._add_label_to_grid(rl[1], 0, 1)
     columns_names = s.schema.columns_names()
     for j in range(self._col_per_month * self._visible_months):
-      rl[j+2] = _create_label(frame, columns_names[j % self._col_per_month])
+      rl[j+2] = _create_label(frame, columns_names[j % self._col_per_month], font = normal_font)
       self._add_label_to_grid(rl[j+2], 0, j+2)
     rl = self._labels[self._row_count - 1]
     for j, month in enumerate(months):
-      rl[2 + j * self._col_per_month] = _create_label(frame, tsv.get_month_by_id(month))
+      rl[2 + j * self._col_per_month] = _create_label(frame, tsv.get_month_by_id(month), font = normal_font)
     self.scrollable_area_window_change_visibility(True)
 
 class MainWindow:
-  def __init__(self, root, db_storage):
+  def __init__(self, root, db_storages: list[storage.Storage]):
     self.root = root
     self.root.minsize(width=1600,height=900)
-    self.db_storage = db_storage
+    self.db_storages = db_storages
+    self.db_storage = db_storages[0]
     self.table = None
     self._year = 0
     self.current_year = None
@@ -165,12 +168,24 @@ class MainWindow:
     self._create_table_frame()
     self._create_frame_with_buttons()
     self._pack_widgets()
+  def _change_current_storage(self):
+    idx = self.current_storage_index.get()
+    if 0 <= idx < len(self.db_storages):
+      if self.db_storages[idx] != self.db_storage:
+        self.db_storage = self.db_storages[idx]
+        self.reload_combobox()
+        self.reload_table()
   def _create_menubar(self):
     self.menubar = tk.Menu(self.root)
     self.root.configure(menu=self.menubar)
     base_menu = tk.Menu(self.menubar)
     self.menubar.add_cascade(label="База", menu=base_menu)
     base_menu.add_command(label="Добавить PDF квитанции", command=self.add_pdf_files)
+    base_menu.add_separator()
+    self.current_storage_index = tk.IntVar(base_menu, 0)
+    self.current_storage_index.trace("w", lambda varname, _, operation: self._change_current_storage())
+    for i, s in enumerate(self.db_storages):
+      base_menu.add_radiobutton(label = s.schema.title(), value = i, variable = self.current_storage_index)
   def _create_table_frame(self):
     self.table_frame = tk.Frame(self.root)
     #self.table = tk.Frame(self.root, bd = 10, relief = tk.SUNKEN)
@@ -262,10 +277,12 @@ class MainWindow:
 
 def main():
   log.init_logging('out.log', logging.DEBUG)
-  schema_storage = storage.Storage('schema.json')
-  if not schema_storage.is_valid():
+  dirname = io_utils.script_dirname()
+  storages = storage.load_storages(dirname)
+  if len(storages) == 0:
+    messagebox.showerror("Ошибка", f'Не найдено ни одного правильного файла конфигурации в json формате в папке "{dirname}"')
     sys.exit(1)
-  window = MainWindow(tk.Tk(), schema_storage)
+  window = MainWindow(tk.Tk(), storages)
   window.mainloop()
 
 main()
