@@ -64,8 +64,6 @@ class BrowsableGridTable:
     if self.is_empty():
       return
     it = enumerate(self._labels)
-    #skip header (it immutable)
-    next(it)
     for i, rl in it:
       for j in range(0, self._visible_months * self._col_per_month):
         l = rl[2 + self._first_month * self._col_per_month + j]
@@ -87,41 +85,57 @@ class BrowsableGridTable:
       self.scrollable_area_window_change_visibility(False)
       self._first_month -= 1
       self.scrollable_area_window_change_visibility(True)
-  def __init__(self, frame: tk.Frame, s: storage.Storage, year: int, max_months: int):
-    months, data = s.load_year_data(year)
-    self._parent = frame
-    self._months = months
-    self._data = data
-    tot_months = len(months)
-    if tot_months == 0:
-      return
-    #header, rows, footer (month name)
-    self._col_per_month = len(data[0]) // tot_months
-    self._row_count = 2 + len(data)
-    self._col_count = 2 + len(data[0])
-    self._visible_months = min(max_months, tot_months)
-    self._month_label_colspan = 2 * self._col_per_month - 1
-    self._first_month = 0
-    self._row_grid = 2 * self._row_count + 1
-    self._col_grid = 2 * (2 + self._visible_months * self._col_per_month) + 1
+  def _compute_columns_width(self) -> list[int]:
+    a = []
+    for col in range(self._col_count):
+      v = 0
+      for rl in self._labels:
+        l = rl[col]
+        if not l is None:
+          #https://stackoverflow.com/questions/63295132/tkinter-get-width-of-specific-text/63299693
+          w = l.winfo_reqwidth()
+          v = max(v, w)
+      a.append(v + 4)
+    return a
+  def _compute_best_max_month(self, tot_months, max_width):
+    w = self._compute_columns_width()
+    w01 = w[0] + w[1]
+    self._visible_months = 1
+    for visible_months in range(2, tot_months+1):
+      fits = True
+      for i in range(0, tot_months-visible_months+1):
+        #i + visible_months <= tot_months
+        #TODD: use prefix sums
+        t = w01 + sum(w[2 + i * self._col_per_month:2 + (i + visible_months) * self._col_per_month])
+        logging.debug(f'visible_months = {visible_months}, i = {i}, t = {t}')
+        if t > max_width:
+          fits = False
+          break
+      if not fits:
+        break
+      self._visible_months = visible_months
+    logging.debug(f'Best visible months = {self._visible_months}')
+  def _create_grid_separators(self):
     for row in range(0, self._row_grid, 2):
-      sep = ttk.Separator(frame, orient = tk.HORIZONTAL)
+      sep = ttk.Separator(self._parent, orient = tk.HORIZONTAL)
       sep.grid(row = row, column = 0, columnspan = self._col_grid - 1, sticky = tk.W + tk.E)
     for col in range(0, self._col_grid, 2):
-      sep = ttk.Separator(frame, orient = tk.VERTICAL)
+      sep = ttk.Separator(self._parent, orient = tk.VERTICAL)
       rowspan = self._row_grid - 1
       c = col // 2
       if (c >= 2) and ((c - 2) % self._col_per_month != 0):
         rowspan -= 2
       sep.grid(row = 0, column = col, rowspan = rowspan, sticky = tk.N + tk.S)
-    self._labels = [ [None] * self._col_grid for _ in range(self._row_grid)]
+  def _create_labels(self, s: storage.Storage, months: list[int], data: list[list[int]]):
+    """не зависит от количества видимых столбцов"""
+    self._labels = [ [None] * self._col_count for _ in range(self._row_count)]
     normal_font = tkFont.Font(family = 'Times', size = 11, slant = tkFont.ROMAN)
     bold_font = tkFont.Font(family = 'Times', size = 11, weight = tkFont.BOLD, slant = tkFont.ROMAN)
     for i, (n, v) in enumerate(zip(s.schema.rows, data)):
       rl = self._labels[i+1]
-      rl[0] = _create_label(frame, n[0], font = normal_font)
+      rl[0] = _create_label(self._parent, n[0], font = normal_font)
       self._add_label_to_grid(rl[0], i+1, 0)
-      rl[1] = _create_label(frame, n[1], font = bold_font)
+      rl[1] = _create_label(self._parent, n[1], font = bold_font)
       self._add_label_to_grid(rl[1], i+1, 1)
       for j, p in enumerate(v):
         fg = None
@@ -140,23 +154,49 @@ class BrowsableGridTable:
             if c < -1e-6:
               #decrease
               fg = "green"
-        rl[j+2] = _create_label(frame, p, fg, normal_font, hint)
+        rl[j+2] = _create_label(self._parent, p, fg, normal_font, hint)
     rl = self._labels[0]
-    rl[1] = _create_label(frame, 'ед.изм.', font = normal_font)
+    rl[1] = _create_label(self._parent, 'ед.изм.', font = normal_font)
     self._add_label_to_grid(rl[1], 0, 1)
-    columns_names = s.schema.columns_names()
-    for j in range(self._col_per_month * self._visible_months):
-      rl[j+2] = _create_label(frame, columns_names[j % self._col_per_month], font = normal_font)
-      self._add_label_to_grid(rl[j+2], 0, j+2)
     rl = self._labels[self._row_count - 1]
     for j, month in enumerate(months):
-      rl[2 + j * self._col_per_month] = _create_label(frame, tsv.get_month_by_id(month), font = normal_font)
+      rl[2 + j * self._col_per_month] = _create_label(self._parent, tsv.get_month_by_id(month), font = normal_font)
+    columns_names = s.schema.columns_names()
+    rl = self._labels[0]
+    for j in range(self._col_per_month * len(months)):
+      rl[j+2] = _create_label(self._parent, columns_names[j % self._col_per_month], font = normal_font)
+      #self._add_label_to_grid(rl[j+2], 0, j+2)
+  def __init__(self, frame: tk.Frame, s: storage.Storage, year: int, max_width: int):
+    #max_width = frame.winfo_width()
+    months, data = s.load_year_data(year)
+    self._parent = frame
+    self._months = months
+    self._data = data
+    self._max_width = max_width
+    tot_months = len(months)
+    if tot_months == 0:
+      return
+    self._col_per_month = len(data[0]) // tot_months
+    #количество строк и столбцов в полной таблице (без окна), но и без разделителей
+    self._row_count = 2 + len(data)
+    self._col_count = 2 + len(data[0])
+    self._month_label_colspan = 2 * self._col_per_month - 1
+    self._create_labels(s, months, data)
+
+    self._compute_best_max_month(tot_months, max_width)
+    self._first_month = 0
+    #количество строк в таблице с окном (удвоение так как учитываются разделители)
+    self._row_grid = 2 * self._row_count + 1
+    self._col_grid = 2 * (2 + self._visible_months * self._col_per_month) + 1
+    self._create_grid_separators()
     self.scrollable_area_window_change_visibility(True)
 
 class MainWindow:
-  def __init__(self, root, db_storages: list[storage.Storage]):
+  def __init__(self, root, db_storages: list[storage.Storage], min_width = 1600, min_height = 900):
     self.root = root
-    self.root.minsize(width=1600,height=900)
+    self.root.minsize(width=min_width, height=min_height)
+    self._width = 0
+    self._min_width = min_width
     self.db_storages = db_storages
     self.db_storage = db_storages[0]
     self.table = None
@@ -168,6 +208,14 @@ class MainWindow:
     self._create_table_frame()
     self._create_frame_with_buttons()
     self._pack_widgets()
+    self.bind_config()
+  def bind_config(self):
+    self.root.bind("<Configure>", self.resize)
+  def resize(self, event):
+    if event.widget == self.root and self._width != event.width:
+      logging.debug(f'{event.widget=}: {event.height=}, {event.width=}\n')
+      self._width = event.width
+      self.reload_table()
   def _change_current_storage(self):
     idx = self.current_storage_index.get()
     if 0 <= idx < len(self.db_storages):
@@ -224,7 +272,8 @@ class MainWindow:
   def _pack_widgets(self):
     #self.year_combobox.pack()
     self.frame_with_buttons.pack(side = tk.TOP)
-    self.table_frame.pack(side = tk.TOP, fill="both", expand=True)
+    #self.table_frame.pack(side = tk.TOP, fill="both", expand=True)
+    self.table_frame.pack(side = tk.TOP)
   def _change_current_year(self):
     self.set_year(int(self.current_year.get()))
   def _add_label_to_table(self, row, column, text, fg = None, columnspan = None, font = None, hint = None):
@@ -243,7 +292,9 @@ class MainWindow:
     return label
   def reload_table(self):
     remove_all_widgets_from_frame(self.table_frame)
-    self.table = BrowsableGridTable(self.table_frame, self.db_storage, self._year, 3)
+    max_width = self.root.winfo_width()
+    logging.debug(f'reload_table(): max_width = {max_width}')
+    self.table = BrowsableGridTable(self.table_frame, self.db_storage, self._year, max_width)
   def set_year(self, year):
     if self._year != year:
       logging.debug(f'Modifing current year to {year}')
