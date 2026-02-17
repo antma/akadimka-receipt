@@ -1,0 +1,11 @@
+{
+  "rows": [
+    {
+      "name": "Базовое содержание общ. имущ. в МКД",
+      "columns_ids": [0, 2]
+    } 
+  ],
+  "columns": [
+    "fee_size", "individual_standard_expense", "amount"
+  ]
+}
