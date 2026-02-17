@@ -218,6 +218,9 @@ def read_and_parse(input_filename, configuration_from_json):
     rl.add_line(group)
   series = []
   assert(len(rl._lines) > 0)
+  logging.info("Found %d interesting lines in file '%s'.", len(rl._lines), input_filename)
+  print(d['rows'])
+  logging.info("Found %d rows in json configuration.", len(d['rows']))
   #самая тупая реализация за квадрат
   for r in d['rows']:
     row_name = r['name']
@@ -240,6 +243,7 @@ def read_and_parse(input_filename, configuration_from_json):
         recept_date = datetime(rl.first_date[0], rl.first_date[1], 1)
         data = { 'date': recept_date, 'row': row_name, 'col': d['columns'][i], 'value': value }
         series.append(pd.Series(data))
+  logging.info("File '%s' contains %d records.", input_filename, len(series))
   return series
 
   '''

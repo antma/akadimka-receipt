@@ -16,15 +16,18 @@ import log
 import pdf_utils
 import tsv
 
-log.init_logging(None, logging.DEBUG)
+log.init_logging(None, logging.INFO)
 
 json_configuration_filename = os.path.join('conf', 'schema.json')
 json_configuration = tsv.load_json_configuration(json_configuration_filename)
 
+series = []
 for filename in glob.glob(os.path.join('input', 'receipt', '2024-01.*')):
   o = pdf_utils.pdt_to_temporary_tsv(filename)
   if o is None:
     logging.error("Could not convert '%s' to TSV", filename)
-  series = tsv.read_and_parse(o, json_configuration)
-  print(series)
+  series.extend(tsv.read_and_parse(o, json_configuration))
   os.unlink(o)
+
+df = pd.DataFrame.from_records(series)
+print(df)
