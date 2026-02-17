@@ -20,9 +20,10 @@ log.init_logging(None, logging.INFO)
 
 json_configuration_filename = os.path.join('conf', 'schema.json')
 json_configuration = tsv.load_json_configuration(json_configuration_filename)
+output_csv_filename = 'receipt.csv'
 
 series = []
-for filename in glob.glob(os.path.join('input', 'receipt', '2024-01.*')):
+for filename in sorted(glob.glob(os.path.join('input', 'receipt', '*.pdf'))):
   o = pdf_utils.pdt_to_temporary_tsv(filename)
   if o is None:
     logging.error("Could not convert '%s' to TSV", filename)
@@ -31,3 +32,4 @@ for filename in glob.glob(os.path.join('input', 'receipt', '2024-01.*')):
 
 df = pd.DataFrame.from_records(series)
 print(df)
+df.to_csv(output_csv_filename)
