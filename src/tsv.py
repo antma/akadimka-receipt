@@ -232,7 +232,7 @@ def read_and_parse(input_filename, configuration_from_json):
         break
     if f is None:
       logging.warning(f'row "{row_name}" is missed in {rl.first_strdate()}')
-      break
+      continue
     k = 0
     for i in r['columns_ids']:
       if k >= len(f[1]):
@@ -242,7 +242,10 @@ def read_and_parse(input_filename, configuration_from_json):
       if isinstance(value, float):
         recept_date = datetime(rl.first_date[0], rl.first_date[1], 1)
         data = { 'date': recept_date, 'row': row_name, 'col': d['columns'][i], 'value': value }
+        logging.debug('Add data: %s', data)
         series.append(pd.Series(data))
+      else:
+        logging.warning("Row '%s', column '%s' value(%s) is not a float number.", row_name, d['columns'][i], value)
   logging.info("File '%s' contains %d records.", input_filename, len(series))
   return series
 
