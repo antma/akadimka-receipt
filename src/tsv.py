@@ -131,7 +131,7 @@ class _ReceiptLines:
     for row in data:
       s = row.text
       if state == 0:
-        if contains_digits(s):
+        if (s == '-') or contains_digits(s):
           state = 1
           x = nr.parse_number(s)
           if not x is None:
@@ -218,9 +218,9 @@ def read_and_parse(input_filename, configuration_from_json):
     rl.add_line(group)
   series = []
   assert(len(rl._lines) > 0)
-  logging.info("Found %d interesting lines in file '%s'.", len(rl._lines), input_filename)
-  print(d['rows'])
-  logging.info("Found %d rows in json configuration.", len(d['rows']))
+  logging.debug("Found %d interesting lines in file '%s'.", len(rl._lines), input_filename)
+  #print(d['rows'])
+  logging.debug("Found %d rows in json configuration.", len(d['rows']))
   #самая тупая реализация за квадрат
   for r in d['rows']:
     row_name = r['name']
@@ -239,13 +239,14 @@ def read_and_parse(input_filename, configuration_from_json):
         logging.error(f"index({k}) out of range in {f}, row_name = '{row_name}'")
       value = f[1][k]
       k += 1
-      if isinstance(value, float):
-        recept_date = datetime(rl.first_date[0], rl.first_date[1], 1)
-        data = { 'date': recept_date, 'row': row_name, 'col': d['columns'][i], 'value': value }
-        logging.debug('Add data: %s', data)
-        series.append(pd.Series(data))
-      else:
-        logging.warning("Row '%s', column '%s' value(%s) is not a float number.", row_name, d['columns'][i], value)
+      if value == '-':
+        logging.warning("Row '%s', column '%s' value(%s) is not a float number, use 0.0 as it value.", row_name, d['columns'][i], value)
+        value = 0.0
+      assert isinstance(value, float)
+      recept_date = datetime(rl.first_date[0], rl.first_date[1], 1)
+      data = { 'date': recept_date, 'row': row_name, 'col': d['columns'][i], 'value': value }
+      logging.debug('Add data: %s', data)
+      series.append(pd.Series(data))
   logging.info("File '%s' contains %d records.", input_filename, len(series))
   return series
 

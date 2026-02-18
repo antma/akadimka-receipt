@@ -13,7 +13,10 @@ def pdf_to_tsv(input_filename, output_filename):
   command = ['pdftotext', '-tsv', input_filename, output_filename]
   logging.info(f'Running command {command}')
   r = subprocess.run(command, check = False, shell = False)
-  logging.info(f'pdftotext returns {r.returncode} code')
+  if r.returncode != 0:
+    logging.warning('pdftotext returns %s errorcode', r.returncode)
+  else:
+    logging.debug('pdftotext succesfully terminated')
   return r.returncode
 
 def pdt_to_temporary_tsv(input_filename):
