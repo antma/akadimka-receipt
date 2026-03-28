@@ -1,0 +1,12 @@
+{
+  "id": "complete_renovation",
+  "rows": [
+    {
+      "name": "Капитальный ремонт",
+      "columns_ids": [0, 1]
+    }
+  ],
+  "columns": [
+    "fee_size", "amount"
+  ]
+}
