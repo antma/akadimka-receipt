@@ -37,4 +37,4 @@ for filename in sorted(glob.glob(os.path.join('input', 'receipt', '*.pdf'))):
 
 df = pd.DataFrame.from_records(series)
 print(df)
-df.to_csv(output_csv_filename, compression={'method': 'gzip', 'compresslevel': 9})
+df.to_csv(output_csv_filename, compression={'method': 'gzip', 'compresslevel': 9}, index = False)
