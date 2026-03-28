@@ -61,6 +61,6 @@ for filename in sorted(glob.glob(os.path.join('input', '*.pdf'))):
     shutil.copy2(filename, copy_filename)
   os.unlink(o)
 
-df = pd.DataFrame.from_records(series).sort_values(by = 'date')
+df = pd.DataFrame.from_records(series).sort_values(by = 'date', kind='mergesort')
 print(df)
 df.to_csv(output_csv_filename, compression={'method': 'gzip', 'compresslevel': 9}, index = False)
